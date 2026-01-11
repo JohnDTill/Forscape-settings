@@ -1,4 +1,5 @@
 import json
+import os
 import re
 
 def get_definition():
@@ -38,10 +39,11 @@ def main():
         "#include \"forscape_settings.h\"\n"
         "\n"
         "#include <array>\n"
+        "#include <stddef.h>\n"
         "\n"
         "namespace Forscape {\n"
         "\n"
-        f"constexpr size_t NUM_COMPILER_SETTINGS = {len(settings_def['compiler_settings'])}uLL;\n"
+        f"constexpr size_t NUM_COMPILER_SETTINGS = {len(settings_def['compiler_settings'])};\n"
         "\n"
         "struct Settings {\n"
         "    std::array<uint8_t, NUM_COMPILER_SETTINGS> compiler_settings;\n"
@@ -86,7 +88,7 @@ def main():
     for idx, (compiler_setting, compiler_setting_vals) in enumerate(settings_def["compiler_settings"].items()):
         src += (
             f"{vartitle(compiler_setting)}Option get{vartitle(compiler_setting)}Option(const Settings& settings) noexcept {{\n"
-            f"    return static_cast<{vartitle(compiler_setting)}Option>(settings.compiler_settings[{idx}uLL]);\n"
+            f"    return static_cast<{vartitle(compiler_setting)}Option>(settings.compiler_settings[{idx}]);\n"
             "}\n\n"
         )
 
@@ -106,9 +108,11 @@ def main():
         "}  // namespace Forscape\n"
     )
 
+    os.makedirs(os.path.dirname("../src/forscape_settings.cpp"), exist_ok=True)
     with open(f"../src/forscape_settings.cpp", "w", encoding="utf-8") as src_file:
         src_file.write(src)
 
+    os.makedirs(os.path.dirname("../include/forscape_settings.h"), exist_ok=True)
     with open(f"../include/forscape_settings.h", "w", encoding="utf-8") as header_file:
         header_file.write(header)
 
