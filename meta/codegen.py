@@ -39,6 +39,7 @@ def main():
         "#include \"forscape_settings.h\"\n"
         "\n"
         "#include <array>\n"
+        "#include <cinttypes>\n"
         "\n"
         "namespace Forscape {\n"
         "\n"
