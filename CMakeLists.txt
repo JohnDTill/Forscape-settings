@@ -7,22 +7,26 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(INC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(META ${CMAKE_CURRENT_SOURCE_DIR}/meta)
 include_directories(${INC})
 
-set(SRC_FILES
+set(GEN_FILES
     ${SRC}/forscape_settings.cpp
-    ${INC}/forscape_settings.h
-)
+    ${INC}/forscape_settings.h)
+
+set(SRC_FILES
+    ${GEN_FILES})
 
 add_library(ForscapeSettingsLib SHARED ${SRC_FILES})
 
 add_custom_target(
-    codegen ForscapeSettingsLib
+    codegen ALL
     COMMAND python3 codegen.py
     WORKING_DIRECTORY ${META}
     BYPRODUCTS ${GEN_FILES}
     COMMENT "Performing codegen"
 )
+add_dependencies(ForscapeSettingsLib codegen)
 
 set_target_properties(ForscapeSettingsLib PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(ForscapeSettingsLib PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
