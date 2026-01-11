@@ -1,4 +1,5 @@
 import json
+import os
 import re
 
 def get_definition():
@@ -106,9 +107,11 @@ def main():
         "}  // namespace Forscape\n"
     )
 
+    os.makedirs(os.path.dirname("../src/forscape_settings.cpp"), exist_ok=True)
     with open(f"../src/forscape_settings.cpp", "w", encoding="utf-8") as src_file:
         src_file.write(src)
 
+    os.makedirs(os.path.dirname("../include/forscape_settings.h"), exist_ok=True)
     with open(f"../include/forscape_settings.h", "w", encoding="utf-8") as header_file:
         header_file.write(header)
 
