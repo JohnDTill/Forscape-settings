@@ -1,0 +1,113 @@
+name: C++ Tests
+on: push
+jobs:
+  cpp-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+            triplet: x64-linux-dynamic
+          - os: ubuntu-latest
+            compiler: clang
+            triplet: x64-linux-dynamic
+          - os: macos-latest
+            compiler: clang
+            triplet: x64-osx-dynamic
+          - os: windows-latest
+            compiler: msvc
+            triplet: x64-windows-dynamic
+          - os: windows-latest
+            compiler: msvc
+            arch: x86
+            triplet: x86-windows-dynamic
+          - os: ubuntu-24.04-arm
+            compiler: gcc
+            triplet: arm64-linux-dynamic
+          - os: ubuntu-24.04-arm
+            compiler: clang
+            triplet: arm64-linux-dynamic
+          - os: windows-11-arm
+            compiler: msvc
+            triplet: arm64-windows-dynamic
+    runs-on: ${{ matrix.os }}
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg_binary_cache
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup
+        shell: bash
+        run: |
+          if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
+            export CC=gcc
+            export CXX=g++
+          elif [[ "${{ matrix.compiler }}" == "clang" ]]; then
+            export CC=clang
+            export CXX=clang++
+          fi
+
+          mkdir ${GITHUB_WORKSPACE}/vcpkg_binary_cache
+
+      - name: Apt dependencies
+        if: ${{ matrix.os == 'macos-latest' }}
+        run: brew install m4 autoconf automake libtool
+
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgJsonGlob: '${GITHUB_WORKSPACE}/vcpkg.json'
+        env:
+          VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
+          VCPKG_DEFAULT_HOST_TRIPLET: ${{ matrix.triplet }}
+
+      - name: Cache vcpkg build
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/vcpkg_binary_cache
+          key: vcpkg-binaries-cache-${{ matrix.compiler }}-${{ matrix.triplet }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Configure
+        shell: bash
+        env:
+          # Need to reset since this is overwritten by installation
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg_binary_cache
+          VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_binary_cache,readwrite
+        run: |
+          CMAKE_FLAGS=()
+          if [ "${{ matrix.arch }}" = "x86" ]; then
+            if [ "$RUNNER_OS" = "Windows" ]; then
+              CMAKE_FLAGS+=("-A" "Win32")
+            else
+              CMAKE_FLAGS+=("-D" "CMAKE_C_FLAGS=-m32" "-D" "CMAKE_CXX_FLAGS=-m32")
+            fi
+
+            CMAKE_FLAGS+=("-D" "CONFIRM_32BIT=ON")
+          fi
+
+          VCPKG_ROOT_POSIX=$(wslpath "${VCPKG_ROOT}" 2>/dev/null || echo "${VCPKG_ROOT}")
+          cmake -D CMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT_POSIX/scripts/buildsystems/vcpkg.cmake \
+            -D VCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            -S . -B build_test "${CMAKE_FLAGS[@]}"
+
+      - name: Build
+        shell: bash
+        run: |
+          BUILD_CONFIG_CMAKE=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            BUILD_CONFIG_CMAKE="--config RelWithDebInfo"
+          fi
+
+          cmake --build build_test --target Tests $BUILD_CONFIG_CMAKE
+
+      - name: Test
+        shell: bash
+        run: |
+          BUILD_CONFIG_CTEST=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            BUILD_CONFIG_CTEST="-C RelWithDebInfo"
+          fi
+
+          ctest --test-dir build_test -V $BUILD_CONFIG_CTEST

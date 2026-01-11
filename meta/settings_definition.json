@@ -1,0 +1,121 @@
+{
+    "options": {
+        "ignore": {
+            "colour": "grey",
+            "description": "Accept the behaviour without any chiding."
+        },
+        "warn": {
+            "colour": "yellow",
+            "description": "Highlight the issue in the IDE and log a compiler warning."
+        },
+        "error": {
+            "colour": "red",
+            "description": "Prevent compilation with an error."
+        },
+        "allow": {
+            "colour": "green",
+            "description": "Enable the mode of evaluation."
+        },
+        "convert to float": {
+            "colour": "grey",
+            "description": "Use floating point representation immediately."
+        },
+        "convert on overflow": {
+            "colour": "lightgrey",
+            "description": "Convert rational numbers to floating point representation when the numerator or denominator exceeds native word size."
+        },
+        "arbitrary precision": {
+            "colour": "blue",
+            "description": "Maintain exact rational representation, even when allocation of multiple words is necessary. This can lead to intractable computational effort in heavily numerical workflows."
+        },
+        "convert top expression": {
+            "colour": "lightgrey",
+            "description": "Parse the top-most expression symbolically, but convert after. For example, \"cos(π/2)\" will be found as '0' exactly, but \"cos(π/4)\" will be approximated as \"0.707107\" since the result \"1/√2\" is symbolic."
+        },
+        "full symbolic": {
+            "colour": "blue",
+            "description": "Propagate symbolic expressions throughout execution. Never implicitly perform inexact operations."
+        }
+    },
+
+    "compiler_settings": {
+        "unused variable": {
+            "options": ["ignore", "warn", "error"],
+            "default": "warn",
+            "brief": "Variable is set but never referenced",
+            "long": "Reviewing unused variables is helpful to reduce complexity and catch unintended execution logic.",
+            "categories": ["warnings", "general"]
+        },
+        "scope shadowing": {
+            "options": ["ignore", "warn", "error"],
+            "default": "ignore",
+            "brief": "Variable name matches one from an outer scope",
+            "long": "Shadowing is prone to accidental use of a variable from an unintended scope.",
+            "categories": ["warnings", "general"]
+        },
+        "transpose 'T'": {
+            "options": ["ignore", "warn", "error"],
+            "default": "warn",
+            "brief": "Transpose with letter 'T' instead of symbol '⊤'",
+            "long": "A superscript letter 'T' is ambiguous since it may refer to the transpose operation, or exponentiation by a variable 'T'. Prefer transpose by the symbol '⊤' (\\top) instead.",
+            "categories": ["warnings", "math", "matrix"]
+        },
+        "implicit symbol declaration": {
+            "options": ["allow", "error"],
+            "default": "error",
+            "brief": "Undeclared identifiers are treated as symbolic values",
+            "long": "This is useful for symbolic computation, but in general spotting undeclared symbols early is helpful.",
+            "categories": ["evaluation", "math", "symbolic"]
+        },
+        "leading decimal place": {
+            "options": ["ignore", "warn", "error"],
+            "default": "warn",
+            "brief": "Number begins with a leading decimal place",
+            "long": "Use of a leading zero makes decimal numbers easier to read, for example \"0.5\" instead of \".5\".",
+            "categories": ["warnings", "math", "numeric"]
+        },
+        "ambiguous inheritance": {
+            "options": ["ignore", "warn", "error"],
+            "default": "warn",
+            "brief": "A member is defined by multiple parents",
+            "long": "Where \"parentA\" and \"parentB\" both implement the same \"method\" without an implementation in the child class, the method resolution is ambiguous. The parent which comes first in the inheritance list is used if the resolution is allowed.",
+            "categories": ["warnings", "general", "classes"]
+        },
+        "diamond inheritance": {
+            "options": ["ignore", "warn", "error"],
+            "default": "error",
+            "brief": "Two parents have a common ancestor",
+            "long": "Where two parents have a common ancestor, any vtable lookup of their methods requires additional indirection.",
+            "categories": ["warnings", "general", "classes"]
+        },
+        "inheritance shadowing": {
+            "options": ["ignore", "warn", "error"],
+            "default": "warn",
+            "brief": "A member definition overrides a parent member",
+            "long": "Shadowing is prone to accidental use of a method from an unintended class.",
+            "categories": ["warnings", "general", "classes"]
+        },
+        "rational conversion": {
+            "options": ["convert to float", "convert on overflow", "arbitrary precision"],
+            "default": "convert on overflow",
+            "brief": "Choose when rational numbers are represented by floats or exact numbers",
+            "long": "For example, \"1.5\" can be parsed as a floating point number, or as \"3 / 2\". Floating point operations are efficient on processing hardware, but rational representations maintain precision.",
+            "categories": ["evaluation", "math", "numeric", "symbolic"]
+        },
+        "irrational conversion": {
+            "options": ["convert to float", "convert top expression", "full symbolic"],
+            "default": "convert top expression",
+            "brief": "Choose when calculations are represented by floats or symbolic expressions",
+            "long": "For example, \"cos(π)\" can be computed by immediately converting 'π' to the closest floating point approximation, or calculated symbolically.",
+            "categories": ["evaluation", "math", "numeric", "symbolic"]
+        }
+    },
+
+    "runtime_settings": {
+        "EVENTUALLY": ["Whereas the compiler settings are entirely flags, runtime settings will often include values.",
+                       "I think these settings will be helpful, but I'm not sure what form they should take.",
+                       "For example, how does the following dynamic behaviour relate to operator overloading?"],
+        "'≈' Absolute Tolerance": 0,
+        "'≈' Relative Tolerance": 0
+    }
+}
