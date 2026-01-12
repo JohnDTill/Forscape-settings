@@ -12,7 +12,9 @@ include_directories(${INC})
 
 set(GEN_FILES
     ${SRC}/forscape_settings.cpp
-    ${INC}/forscape_settings.h)
+    ${INC}/forscape_settings.h
+    ${SRC}/forscape_settings_diff.cpp
+    ${SRC}/forscape_settings_diff.h)
 
 set(SRC_FILES
     ${GEN_FILES})
@@ -38,6 +40,18 @@ target_include_directories(ForscapeSettingsLib
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+
+# Qt layer
+find_package(QT NAMES Qt5 Qt6 COMPONENTS Widgets REQUIRED)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
+
+set(QT_FILES
+    ${SRC}/forscape_settings_diff_dialog.cpp
+    ${SRC}/forscape_settings_diff_dialog.h)
+add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
+target_link_libraries(QtForscapeSettingsLib PUBLIC
+    Qt${QT_VERSION_MAJOR}::Widgets
+    ForscapeSettingsLib)
 
 # Testing setup
 if(PROJECT_IS_TOP_LEVEL)
