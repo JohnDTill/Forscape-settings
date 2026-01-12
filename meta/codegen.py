@@ -45,7 +45,6 @@ def main():
         "/// Specifications to override a subset of settings\n"
         "struct SettingsDiff;\n"
         "\n"
-        f"typedef {setting_typedef} SettingsId;\n"
         "typedef uint8_t SettingsOption;\n"
         "\n"
     )
@@ -58,6 +57,42 @@ def main():
         "\n"
         "namespace Forscape {\n"
         "\n"
+    )
+
+    diff_header = (
+        "#ifndef FORSCAPE_SETTINGS_DIFF_H\n"
+        "#define FORSCAPE_SETTINGS_DIFF_H\n"
+        "\n"
+        "#include <stdint.h>\n"
+        "#include <string>\n"
+        "#include <string_view>\n"
+        "#include <vector>\n"
+        "\n"
+        "namespace Forscape {\n"
+        "\n"
+        "struct Settings;\n"
+        "\n"
+        "struct SettingsDiff {\n"
+        "    /// Append a serialised representation of the SettingsDiff to a string.\n"
+        "    void writeString(std::string& out) const;\n"
+        "\n"
+        "    /// Determine if a string is a valid serialised representation of a SettingsDiff.\n"
+        "    static bool isValidSerial(std::string_view str) noexcept;\n"
+        "\n"
+        "    /// Deserialise a SettingsDiff from a string, writing errors for any invalidly specified settings.\n"
+        "    /// Asserts if the argument is not valid serial.\n"
+        "    static SettingsDiff fromString(std::string_view str);\n"
+        "\n"
+        "private:\n"
+        f"    typedef {setting_typedef} SettingsId;\n"
+        "    typedef uint8_t SettingsOption;\n"
+        "    std::vector<std::pair<SettingsId, SettingsOption>> updates;\n"
+        "    friend Settings;\n"
+        "};\n"
+        "\n"
+        "}  // namespace Forscape\n"
+        "\n"
+        "#endif // FORSCAPE_SETTINGS_DIFF_H\n"
     )
 
     diff_src = (
@@ -86,8 +121,6 @@ def main():
 
     # Write compiler settings struct
     settings_header += (
-        f"constexpr size_t NUM_COMPILER_SETTINGS = {len(settings)};\n"
-        "\n"
         "struct Settings {\n"
         "    /// Get default settings before any user overrides\n"
         "    static const Settings& getDefaults() noexcept;\n"
@@ -113,6 +146,8 @@ def main():
     settings_header += (
         "\n"
         "private:\n"
+        f"    static constexpr size_t NUM_COMPILER_SETTINGS = {len(settings)};\n"
+        f"    typedef {setting_typedef} SettingsId;\n"
         "    std::array<SettingsId, NUM_COMPILER_SETTINGS> compiler_settings;\n"
         "    std::vector<size_t> num_settings_modified_per_scope;\n"
         "    std::vector<std::pair<SettingsId, SettingsOption>> modified_settings;\n"
@@ -296,6 +331,9 @@ def main():
     os.makedirs(os.path.dirname("../include/forscape_settings.h"), exist_ok=True)
     with open(f"../include/forscape_settings.h", "w", encoding="utf-8") as settings_header_file:
         settings_header_file.write(settings_header)
+
+    with open(f"../include/forscape_settings_diff.h", "w", encoding="utf-8") as diff_header_file:
+        diff_header_file.write(diff_header)
 
     with open(f"../src/forscape_settings_diff.cpp", "w", encoding="utf-8") as diff_src_file:
         diff_src_file.write(diff_src)

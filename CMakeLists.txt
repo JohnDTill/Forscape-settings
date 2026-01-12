@@ -14,10 +14,9 @@ set(GEN_FILES
     ${SRC}/forscape_settings.cpp
     ${INC}/forscape_settings.h
     ${SRC}/forscape_settings_diff.cpp
-    ${SRC}/forscape_settings_diff.h)
+    ${INC}/forscape_settings_diff.h)
 
-set(SRC_FILES
-    ${GEN_FILES})
+set(SRC_FILES ${GEN_FILES})
 
 add_library(ForscapeSettingsLib SHARED ${SRC_FILES})
 
@@ -45,6 +44,8 @@ target_include_directories(ForscapeSettingsLib
 )
 
 # Qt layer
+option(USE_QT OFF)
+if(${USE_QT})
 find_package(QT NAMES Qt5 Qt6 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 
@@ -55,6 +56,7 @@ add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
 target_link_libraries(QtForscapeSettingsLib PUBLIC
     Qt${QT_VERSION_MAJOR}::Widgets
     ForscapeSettingsLib)
+endif(${USE_QT})
 
 # Testing setup
 if(PROJECT_IS_TOP_LEVEL)
