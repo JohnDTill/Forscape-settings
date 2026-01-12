@@ -24,30 +24,21 @@ def main():
         "#ifndef FORSCAPE_SETTINGS_H\n"
         "#define FORSCAPE_SETTINGS_H\n"
         "\n"
+        "#include <array>\n"
+        "#include <stddef.h>\n"
         "#include <stdint.h>\n"
         "\n"
         "namespace Forscape {\n"
         "\n"
+        "/// Locally-scoped compiler options which change the evaluation of Forscape code and IDE interactions\n"
         "struct Settings;\n"
-        "\n"
-        "/// Get default settings before any user overrides\n"
-        "const Settings& getDefaultSettings() noexcept;\n"
         "\n"
     )
 
     src = (
         "#include \"forscape_settings.h\"\n"
         "\n"
-        "#include <array>\n"
-        "#include <stddef.h>\n"
-        "\n"
         "namespace Forscape {\n"
-        "\n"
-        f"constexpr size_t NUM_COMPILER_SETTINGS = {len(settings_def['compiler_settings'])};\n"
-        "\n"
-        "struct Settings {\n"
-        "    std::array<uint8_t, NUM_COMPILER_SETTINGS> compiler_settings;\n"
-        "};\n"
         "\n"
     )
 
@@ -64,12 +55,42 @@ def main():
             else:
                 errors += f"Option {option} was not found (from setting {compiler_setting})"
             header += "\n"
-        header += "};\n"
-        header += f"{vartitle(compiler_setting)}Option get{vartitle(compiler_setting)}Option(const Settings& settings) noexcept;\n\n"
+        header += "};\n\n"
+
+    # Write compiler settings struct
+    header += (
+        f"constexpr size_t NUM_COMPILER_SETTINGS = {len(settings_def['compiler_settings'])};\n"
+        "\n"
+        "struct Settings {\n"
+        "    /// Get default settings before any user overrides\n"
+        "    static const Settings& getDefaults() noexcept;\n"
+        "\n"
+    )
+
+    for compiler_setting, compiler_setting_vals in settings_def["compiler_settings"].items():
+        header += (
+            f"    /// {compiler_setting_vals['brief']}.\n"
+            f"    {vartitle(compiler_setting)}Option get{vartitle(compiler_setting)}Option() const noexcept;\n"
+            "\n"
+        )
+
+    header += (
+        "\n"
+        "private:\n"
+        "    std::array<uint8_t, NUM_COMPILER_SETTINGS> compiler_settings;\n"
+        "\n"
+        "    Settings(const std::array<uint8_t, NUM_COMPILER_SETTINGS>& settings) noexcept;\n"
+        "    static const Settings DEFAULT_SETTINGS;\n"
+        "};\n"
+        "\n"
+    )
 
     # Write default settings
     src += (
-        "constexpr Settings DEFAULT_SETTINGS = {{\n"
+        "Settings::Settings(const std::array<uint8_t, NUM_COMPILER_SETTINGS>& settings) noexcept\n"
+        "    : compiler_settings(settings) {}\n"
+        "\n"
+        "const Settings Settings::DEFAULT_SETTINGS = {{\n"
     )
     for compiler_setting, compiler_setting_vals in settings_def["compiler_settings"].items():
         if compiler_setting_vals["default"] in compiler_setting_vals["options"]:
@@ -79,7 +100,7 @@ def main():
     src += "}};\n\n"
 
     src += (
-        "const Settings& getDefaultSettings() noexcept {\n"
+        "const Settings& Settings::getDefaults() noexcept {\n"
         "    return DEFAULT_SETTINGS;\n"
         "}\n\n"
     )
@@ -87,8 +108,8 @@ def main():
     # Write getter functions
     for idx, (compiler_setting, compiler_setting_vals) in enumerate(settings_def["compiler_settings"].items()):
         src += (
-            f"{vartitle(compiler_setting)}Option get{vartitle(compiler_setting)}Option(const Settings& settings) noexcept {{\n"
-            f"    return static_cast<{vartitle(compiler_setting)}Option>(settings.compiler_settings[{idx}]);\n"
+            f"{vartitle(compiler_setting)}Option Settings::get{vartitle(compiler_setting)}Option() const noexcept {{\n"
+            f"    return static_cast<{vartitle(compiler_setting)}Option>(compiler_settings[{idx}]);\n"
             "}\n\n"
         )
 

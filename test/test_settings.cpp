@@ -5,9 +5,9 @@
 using namespace Forscape;
 
 TEST_CASE( "Defaults" ) {
-    const Settings& default_settings = getDefaultSettings();
-    REQUIRE(getUnusedVariableOption(default_settings) == UnusedVariableOption::WARN);
-    REQUIRE(getTransposeTOption(default_settings) == TransposeTOption::WARN);
-    REQUIRE(getScopeShadowingOption(default_settings) == ScopeShadowingOption::IGNORE);
-    REQUIRE(getImplicitSymbolDeclarationOption(default_settings) == ImplicitSymbolDeclarationOption::ERROR);
+    const Settings& default_settings = Settings::getDefaults();
+    REQUIRE(default_settings.getUnusedVariableOption() == UnusedVariableOption::WARN);
+    REQUIRE(default_settings.getTransposeTOption() == TransposeTOption::WARN);
+    REQUIRE(default_settings.getScopeShadowingOption() == ScopeShadowingOption::IGNORE);
+    REQUIRE(default_settings.getImplicitSymbolDeclarationOption() == ImplicitSymbolDeclarationOption::ERROR);
 }
