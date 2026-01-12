@@ -1,4 +1,5 @@
 import json
+from math import ceil, log2
 import os
 import re
 
@@ -12,15 +13,22 @@ def varupper(val):
     return re.sub(r'\W+', '', val.strip().replace(' ', '_')).upper()
 
 def vartitle(val):
-    return re.sub(r'\W+', '', val.title())    
+    return re.sub(r'\W+', '', val.title())
 
 
 def main():
     settings_def = get_definition()
     options = settings_def["options"]
+    settings = settings_def["compiler_settings"]
     errors = []
 
-    header = (
+    max_options = max([len(setting["options"]) for setting in settings.values()])
+    num_settings_bits = ceil(log2(len(settings)))
+    num_options_bits = ceil(log2(max_options))
+    setting_typedef = "uint8_t" if num_settings_bits <= 8 else "uint16_t"
+    setting_option_pair_typedef = "uint8_t" if num_settings_bits + num_options_bits <= 8 else "uint16_t"
+
+    settings_header = (
         "#ifndef FORSCAPE_SETTINGS_H\n"
         "#define FORSCAPE_SETTINGS_H\n"
         "\n"
@@ -37,9 +45,12 @@ def main():
         "/// Specifications to override a subset of settings\n"
         "struct SettingsDiff;\n"
         "\n"
+        f"typedef {setting_typedef} SettingsId;\n"
+        "typedef uint8_t SettingsOption;\n"
+        "\n"
     )
 
-    src = (
+    settings_src = (
         "#include \"forscape_settings.h\"\n"
         "\n"
         "#include <cassert>\n"
@@ -49,24 +60,33 @@ def main():
         "\n"
     )
 
+    diff_src = (
+        "#include \"forscape_settings_diff.h\"\n" \
+        "\n"
+        "#include <parallel_hashmap/phmap.h>\n"
+        "\n"
+        "namespace Forscape {\n"
+        "\n"
+    )
+
     # Write compiler settings enums
-    for compiler_setting, compiler_setting_vals in settings_def["compiler_settings"].items():
-        header += (
+    for compiler_setting, compiler_setting_vals in settings.items():
+        settings_header += (
             f"/// {compiler_setting_vals['brief']}.\n"
-            f"enum class {vartitle(compiler_setting)}Option : uint8_t {{\n"
+            f"enum class {vartitle(compiler_setting)}Option : SettingsOption {{\n"
         )
         for option in compiler_setting_vals["options"]:
-            header += f"    {varupper(option)},"
+            settings_header += f"    {varupper(option)},"
             if option in options:
-                header += f"  ///< {options[option]['description']}"
+                settings_header += f"  ///< {options[option]['description']}"
             else:
                 errors += f"Option {option} was not found (from setting {compiler_setting})"
-            header += "\n"
-        header += "};\n\n"
+            settings_header += "\n"
+        settings_header += "};\n\n"
 
     # Write compiler settings struct
-    header += (
-        f"constexpr size_t NUM_COMPILER_SETTINGS = {len(settings_def['compiler_settings'])};\n"
+    settings_header += (
+        f"constexpr size_t NUM_COMPILER_SETTINGS = {len(settings)};\n"
         "\n"
         "struct Settings {\n"
         "    /// Get default settings before any user overrides\n"
@@ -83,21 +103,21 @@ def main():
         "\n"
     )
 
-    for compiler_setting, compiler_setting_vals in settings_def["compiler_settings"].items():
-        header += (
+    for compiler_setting, compiler_setting_vals in settings.items():
+        settings_header += (
             f"    /// {compiler_setting_vals['brief']}.\n"
             f"    {vartitle(compiler_setting)}Option get{vartitle(compiler_setting)}Option() const noexcept;\n"
             "\n"
         )
 
-    header += (
+    settings_header += (
         "\n"
         "private:\n"
-        "    std::array<uint8_t, NUM_COMPILER_SETTINGS> compiler_settings;\n"
+        "    std::array<SettingsId, NUM_COMPILER_SETTINGS> compiler_settings;\n"
         "    std::vector<size_t> num_settings_modified_per_scope;\n"
-        "    std::vector<std::pair<uint8_t, uint8_t>> modified_settings;\n"
+        "    std::vector<std::pair<SettingsId, SettingsOption>> modified_settings;\n"
         "\n"
-        "    Settings(const std::array<uint8_t, NUM_COMPILER_SETTINGS>& settings) noexcept;\n"
+        "    Settings(const std::array<SettingsId, NUM_COMPILER_SETTINGS>& settings) noexcept;\n"
         "    static const Settings DEFAULT_SETTINGS;\n"
         "\n"
         "    #ifndef NDEBUG\n"
@@ -108,20 +128,20 @@ def main():
     )
 
     # Write default settings
-    src += (
-        "Settings::Settings(const std::array<uint8_t, NUM_COMPILER_SETTINGS>& settings) noexcept\n"
+    settings_src += (
+        "Settings::Settings(const std::array<SettingsId, NUM_COMPILER_SETTINGS>& settings) noexcept\n"
         "    : compiler_settings(settings) {}\n"
         "\n"
         "const Settings Settings::DEFAULT_SETTINGS = {{\n"
     )
-    for compiler_setting, compiler_setting_vals in settings_def["compiler_settings"].items():
+    for compiler_setting, compiler_setting_vals in settings.items():
         if compiler_setting_vals["default"] in compiler_setting_vals["options"]:
-            src += f"    static_cast<uint8_t>({vartitle(compiler_setting)}Option::{varupper(compiler_setting_vals['default'])}),\n"
+            settings_src += f"    static_cast<SettingsOption>({vartitle(compiler_setting)}Option::{varupper(compiler_setting_vals['default'])}),\n"
         else:
             errors += f"Default {compiler_setting_vals['default']} is not an option of {compiler_setting}"
-    src += "}};\n\n"
+    settings_src += "}};\n\n"
 
-    src += (
+    settings_src += (
         "const Settings& Settings::getDefaults() noexcept {\n"
         "    return DEFAULT_SETTINGS;\n"
         "}\n"
@@ -157,14 +177,99 @@ def main():
     )
 
     # Write getter functions
-    for idx, (compiler_setting, compiler_setting_vals) in enumerate(settings_def["compiler_settings"].items()):
-        src += (
+    for idx, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
+        settings_src += (
             f"{vartitle(compiler_setting)}Option Settings::get{vartitle(compiler_setting)}Option() const noexcept {{\n"
             f"    return static_cast<{vartitle(compiler_setting)}Option>(compiler_settings[{idx}]);\n"
             "}\n\n"
         )
 
-    header += (
+    # Write diff serialisation
+    diff_src += (
+        f"typedef {setting_typedef} SettingsId;\n"
+        "typedef uint8_t SettingsOption;\n"
+        f"typedef {setting_option_pair_typedef} IdOptionPair;\n"
+        "\n"
+        "inline constexpr IdOptionPair optionToCode(SettingsId setting_id, SettingsOption option) noexcept {\n"
+        f"    return setting_id | (option << {num_settings_bits});\n"
+        "}\n"
+        "\n"
+        "void SettingsDiff::writeString(std::string& out) const {\n"
+        "    bool subsequent = false;\n"
+        "    for(const auto [setting_id, setting_value] : updates){\n"
+        "        if(subsequent) out += ',';\n"
+        "        subsequent = true;\n"
+        "\n"
+        "        switch(setting_id){\n"
+    )
+    for idx, compiler_setting in enumerate(settings_def["compiler_settings"]):
+        diff_src += f"            case {idx}: out += \"{vartitle(compiler_setting)}\"; break;\n"
+    diff_src += (
+        "        }\n"
+        "\n"
+        "        out += '=';\n"
+        "\n"
+        "        switch(optionToCode(setting_id, setting_value)){\n"
+    )
+    for setting_id, compiler_setting_vals in enumerate(settings.values()):
+        for option_id, option in enumerate(compiler_setting_vals["options"]):
+            diff_src += (
+                f"            case optionToCode({setting_id}, {option_id}): out += \"{vartitle(option)}\"; break;\n"
+            )
+    diff_src += (
+        "        }\n"
+        "    }\n"
+        "}\n"
+        "\n"
+    )
+
+    # Write diff deserialisation
+    diff_src += (
+        "static const phmap::flat_hash_map<std::string_view, std::pair<SettingsId, SettingsOption>> decoding_map {\n"
+    )
+    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
+        for option_id, option in enumerate(compiler_setting_vals["options"]):
+            diff_src += f"    {{ \"{vartitle(compiler_setting)}={vartitle(option)}\", {{{setting_id},{option_id}}} }},\n"
+    diff_src += "};\n\n"
+
+    diff_src += (
+        "bool SettingsDiff::isValidSerial(std::string_view str) noexcept {\n"
+        "    size_t tail = str.size();\n"
+        "    size_t index = tail-1;\n"
+        "    for(;;) {\n"
+        "        if(index == 0){\n"
+        "            return decoding_map.find(str.substr(index, tail-index)) != decoding_map.cend();\n"
+        "        }else if(str[index] == ','){\n"
+        "            if(decoding_map.find(str.substr(index+1, tail-(index+1))) == decoding_map.cend()) return false;\n"
+        "            tail = index;\n"
+        "        }\n"
+        "\n"
+        "        index--;\n"
+        "    }\n"
+        "}\n"
+        "\n"
+    )
+
+    diff_src += (
+        "SettingsDiff SettingsDiff::fromString(std::string_view str){\n"
+        "    SettingsDiff diff;\n"
+        "\n"
+        "    size_t index = 0;\n"
+        "    while(index < str.size()){\n"
+        "        const size_t start = index;\n"
+        "        while(index < str.size() && str[index] != ',') index++;\n"
+        "        const std::string_view setting_pair = str.substr(start, index-start);\n"
+        "        assert(decoding_map.find(setting_pair) != decoding_map.cend());\n"
+        "        diff.updates.push_back( decoding_map.find(setting_pair)->second );\n"
+        "        index++;\n"
+        "    }\n"
+        "\n"
+        "    return diff;\n"
+        "}\n"
+        "\n"
+    )
+
+    settings_header += (
         "}  // namespace Forscape\n"
         "\n"
         "#endif  // #ifndef FORSCAPE_SETTINGS_H\n"
@@ -174,19 +279,26 @@ def main():
         msg = "#error The codegen process had errors\n"
         for error in errors:
             msg += error + "\n"
-        header = msg + '\n' + header
+        settings_header = msg + '\n' + settings_header
 
-    src += (
+    settings_src += (
+        "}  // namespace Forscape\n"
+    )
+
+    diff_src += (
         "}  // namespace Forscape\n"
     )
 
     os.makedirs(os.path.dirname("../src/forscape_settings.cpp"), exist_ok=True)
-    with open(f"../src/forscape_settings.cpp", "w", encoding="utf-8") as src_file:
-        src_file.write(src)
+    with open(f"../src/forscape_settings.cpp", "w", encoding="utf-8") as settings_src_file:
+        settings_src_file.write(settings_src)
 
     os.makedirs(os.path.dirname("../include/forscape_settings.h"), exist_ok=True)
-    with open(f"../include/forscape_settings.h", "w", encoding="utf-8") as header_file:
-        header_file.write(header)
+    with open(f"../include/forscape_settings.h", "w", encoding="utf-8") as settings_header_file:
+        settings_header_file.write(settings_header)
+
+    with open(f"../src/forscape_settings_diff.cpp", "w", encoding="utf-8") as diff_src_file:
+        diff_src_file.write(diff_src)
 
     if len(errors) != 0:
         raise Exception(f"Codegen had errors: {errors}")

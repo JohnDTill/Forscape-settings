@@ -21,6 +21,9 @@ set(SRC_FILES
 
 add_library(ForscapeSettingsLib SHARED ${SRC_FILES})
 
+find_path(PARALLEL_HASHMAP_INCLUDE_DIRS "parallel_hashmap/btree.h")
+target_include_directories(ForscapeSettingsLib PRIVATE ${PARALLEL_HASHMAP_INCLUDE_DIRS})
+
 add_custom_target(
     codegen ALL
     COMMAND python3 codegen.py
@@ -57,8 +60,10 @@ target_link_libraries(QtForscapeSettingsLib PUBLIC
 if(PROJECT_IS_TOP_LEVEL)
 find_package(Catch2 CONFIG REQUIRED)
 enable_testing()
+set(TEST ${CMAKE_CURRENT_SOURCE_DIR}/test)
 add_executable(Tests
-    test/test_settings.cpp)
+    ${TEST}/test_settings.cpp
+    ${TEST}/test_settings_diff.cpp)
 target_include_directories(Tests PUBLIC src)
 target_link_libraries(Tests PRIVATE ForscapeSettingsLib Catch2::Catch2WithMain)
 add_test(NAME Tests COMMAND Tests)

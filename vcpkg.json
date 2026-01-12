@@ -3,6 +3,7 @@
   "name": "forscape-settings-dependencies",
   "version-string": "0.0.1",
   "dependencies": [
+    "parallel-hashmap",
     "catch2"
   ]
 }
