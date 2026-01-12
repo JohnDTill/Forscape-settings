@@ -2,6 +2,7 @@
 src/generated/*
 src/forscape_settings.cpp
 include/forscape_settings.h
+src/forscape_settings_diff.cpp
 */out/*
 */CMakeCache.txt
 *.exe
