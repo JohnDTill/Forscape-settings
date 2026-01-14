@@ -5,7 +5,7 @@
 int main(int argc, char* argv[]){
     QApplication a(argc, argv);
 
-    SettingsDiffDialog dialog;
+    Forscape::SettingsDiffDialog dialog;
     dialog.exec();
 
     const auto code = a.exec();

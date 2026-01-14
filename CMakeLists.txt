@@ -63,10 +63,12 @@ find_package(QT NAMES Qt5 Qt6 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 
 set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOMOC ON)
 
 set(QT_FILES
     ${SRC}/forscape_settings_diff_dialog.cpp
-    ${SRC}/forscape_settings_diff_dialog.h)
+    ${SRC}/forscape_settings_diff_dialog.h
+    ${SRC}/forscape_settings_diff_dialog.ui)
 add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
 target_link_libraries(QtForscapeSettingsLib PUBLIC
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -74,8 +76,7 @@ target_link_libraries(QtForscapeSettingsLib PUBLIC
 
 if(PROJECT_IS_TOP_LEVEL)
 include_directories(${SRC})
-qt_add_executable(DiffDialog MANUAL_FINALIZATION ${TEST}/visualise_diff_dialog.cpp
-    src/forscape_settings_diff_dialog.h src/forscape_settings_diff_dialog.cpp src/forscape_settings_diff_dialog.ui)
+qt_add_executable(DiffDialog MANUAL_FINALIZATION ${TEST}/visualise_diff_dialog.cpp)
 target_link_libraries(DiffDialog PRIVATE Qt${QT_VERSION_MAJOR}::Widgets QtForscapeSettingsLib)
 qt_finalize_executable(DiffDialog)
 endif(PROJECT_IS_TOP_LEVEL)
