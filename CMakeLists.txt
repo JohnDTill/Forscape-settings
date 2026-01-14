@@ -43,21 +43,6 @@ target_include_directories(ForscapeSettingsLib
         $<INSTALL_INTERFACE:include>
 )
 
-# Qt layer
-option(USE_QT OFF)
-if(${USE_QT})
-find_package(QT NAMES Qt5 Qt6 COMPONENTS Widgets REQUIRED)
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
-
-set(QT_FILES
-    ${SRC}/forscape_settings_diff_dialog.cpp
-    ${SRC}/forscape_settings_diff_dialog.h)
-add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
-target_link_libraries(QtForscapeSettingsLib PUBLIC
-    Qt${QT_VERSION_MAJOR}::Widgets
-    ForscapeSettingsLib)
-endif(${USE_QT})
-
 # Testing setup
 if(PROJECT_IS_TOP_LEVEL)
 find_package(Catch2 CONFIG REQUIRED)
@@ -70,3 +55,29 @@ target_include_directories(Tests PUBLIC src)
 target_link_libraries(Tests PRIVATE ForscapeSettingsLib Catch2::Catch2WithMain)
 add_test(NAME Tests COMMAND Tests)
 endif(PROJECT_IS_TOP_LEVEL)
+
+# Qt layer
+option(USE_QT OFF)
+if(${USE_QT})
+find_package(QT NAMES Qt5 Qt6 COMPONENTS Widgets REQUIRED)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
+
+set(CMAKE_AUTOUIC ON)
+
+set(QT_FILES
+    ${SRC}/forscape_settings_diff_dialog.cpp
+    ${SRC}/forscape_settings_diff_dialog.h)
+add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
+target_link_libraries(QtForscapeSettingsLib PUBLIC
+    Qt${QT_VERSION_MAJOR}::Widgets
+    ForscapeSettingsLib)
+
+if(PROJECT_IS_TOP_LEVEL)
+include_directories(${SRC})
+qt_add_executable(DiffDialog MANUAL_FINALIZATION ${TEST}/visualise_diff_dialog.cpp
+    src/forscape_settings_diff_dialog.h src/forscape_settings_diff_dialog.cpp src/forscape_settings_diff_dialog.ui)
+target_link_libraries(DiffDialog PRIVATE Qt${QT_VERSION_MAJOR}::Widgets QtForscapeSettingsLib)
+qt_finalize_executable(DiffDialog)
+endif(PROJECT_IS_TOP_LEVEL)
+
+endif(${USE_QT})

@@ -3,16 +3,18 @@
 
 #include <QDialog>
 
-// TODO:
-//   * Visualise the combination of SettingsDiff and Settings (all the Settings gives you is inherited values)
-//   * Allow editing with filter options and search
-
-// TODO: method to draw and report size of a diff as it will be shown in the Construct
+namespace Ui {
+class SettingsDiffDialog;
+}
 
 class SettingsDiffDialog : public QDialog {
+
 public:
-    SettingsDiffDialog(QWidget* parent = nullptr);
+    explicit SettingsDiffDialog(QWidget* parent = nullptr);
     ~SettingsDiffDialog();
+
+private:
+    Ui::SettingsDiffDialog* ui;
 };
 
 #endif // FORSCAPE_SETTINGS_DIFF_DIALOG_H
