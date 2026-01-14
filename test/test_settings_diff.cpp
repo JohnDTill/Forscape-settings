@@ -36,3 +36,17 @@ TEST_CASE( "Diff application" ) {
     settings.leaveScope();
     REQUIRE(settings.getUnusedVariableOption() == UnusedVariableOption::WARN);
 }
+
+TEST_CASE( "Buffer trip" ) {
+    Settings settings = Settings::getDefaults();
+    REQUIRE(settings.getUnusedVariableOption() == UnusedVariableOption::WARN);
+
+    SettingsDiff diff = SettingsDiff::fromString("UnusedVariable=Error");
+    std::vector<size_t> totally_a_parse_node = {1, 2, 3};  // Some mock data in the buffer
+    diff.writeToBuffer(totally_a_parse_node);
+    REQUIRE(totally_a_parse_node.size() == 5);
+    REQUIRE(totally_a_parse_node[3] == 1);
+
+    settings.applyDiff(SettingsDiffView::fromBuffer(&totally_a_parse_node[3]));
+    REQUIRE(settings.getUnusedVariableOption() == UnusedVariableOption::ERROR);
+}
