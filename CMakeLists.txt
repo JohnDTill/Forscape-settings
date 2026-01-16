@@ -65,14 +65,25 @@ find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 
-set(QT_FILES
-    ${SRC}/forscape_settings_diff_dialog.cpp
-    ${SRC}/forscape_settings_diff_dialog.h
+set(UI_CODEGEN_FILES
     ${SRC}/forscape_settings_diff_dialog.ui)
+
+set(QT_FILES
+    ${UI_CODEGEN_FILES}
+    ${SRC}/forscape_settings_diff_dialog.cpp
+    ${SRC}/forscape_settings_diff_dialog.h)
 add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
 target_link_libraries(QtForscapeSettingsLib PUBLIC
     Qt${QT_VERSION_MAJOR}::Widgets
     ForscapeSettingsLib)
+
+add_custom_target(
+    codegen_ui ALL
+    COMMAND python3 codegen_ui.py
+    WORKING_DIRECTORY ${META}
+    # BYPRODUCTS ${UI_CODEGEN_FILES}
+    COMMENT "Performing UI codegen")
+add_dependencies(QtForscapeSettingsLib codegen_ui)
 
 if(PROJECT_IS_TOP_LEVEL)
 include_directories(${SRC})

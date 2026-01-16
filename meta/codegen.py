@@ -3,6 +3,7 @@ from math import ceil, log2
 import os
 import re
 
+
 def get_definition():
     with open('settings_definition.json', encoding='utf-8') as settings_def_file:
         settings_def = json.load(settings_def_file)
@@ -11,6 +12,7 @@ def get_definition():
 
 def varupper(val):
     return re.sub(r'\W+', '', val.strip().replace(' ', '_')).upper()
+
 
 def vartitle(val):
     return re.sub(r'\W+', '', val.title())
