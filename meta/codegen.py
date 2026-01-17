@@ -1,6 +1,8 @@
+from collections import OrderedDict
 import json
 from math import ceil, log2
 import os
+from pathlib import Path
 import re
 
 
@@ -19,9 +21,30 @@ def vartitle(val):
 
 
 def main():
+    inputs = [
+        Path("settings_definition.json"),
+        Path("codegen.py"),
+    ]
+
+    outputs = [
+        Path("../src/forscape_settings.cpp"),
+        Path("../include/forscape_settings.h"),
+        Path("../src/forscape_settings_diff.cpp"),
+        Path("../include/forscape_settings_diff.h"),
+        Path("../src/forscape_settings_diff_dialog.ui")
+    ]
+
+    if all([path.exists for path in outputs]) and max([os.path.getmtime(path) for path in inputs]) < min([os.path.getmtime(path) for path in outputs]):
+        return  # No sources changed
+    
+    print(
+        f"Performing settings code generation (outputs exist: {all([path.exists for path in outputs])}, "
+        f"last input change: {max([os.path.getmtime(path) for path in inputs])}, "
+        f"last output change: {min([os.path.getmtime(path) for path in outputs])})")
+
     settings_def = get_definition()
-    options = settings_def["options"]
-    settings = settings_def["compiler_settings"]
+    options = OrderedDict(sorted(settings_def["options"].items()))
+    settings = OrderedDict(sorted(settings_def["compiler_settings"].items()))
     errors = []
 
     max_options = max([len(setting["options"]) for setting in settings.values()])
@@ -71,6 +94,7 @@ def main():
         "\n"
         "struct Settings;\n"
         "struct SettingsDiff;\n"
+        "class SettingsDiffDialog;\n"
         "\n"
         "/// Immutable view of a diff to update settings\n"
         "struct SettingsDiffView {\n"
@@ -115,6 +139,8 @@ def main():
         f"    typedef {setting_typedef} SettingsId;\n"
         "    typedef uint8_t SettingsOption;\n"
         "    std::vector<std::pair<SettingsId, SettingsOption>> updates;\n"
+        "\n"
+        "    friend SettingsDiffDialog;\n"
         "};\n"
         "\n"
         "}  // namespace Forscape\n"
@@ -160,7 +186,7 @@ def main():
         "    void enterScope();\n"
         "\n"
         "    /// Revert any setting updates made in the scope\n"
-        "    void leaveScope() noexcept\n;"
+        "    void leaveScope() noexcept;\n"
         "\n"
     )
 

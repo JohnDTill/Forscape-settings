@@ -66,7 +66,9 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 
 set(UI_CODEGEN_FILES
-    ${SRC}/forscape_settings_diff_dialog.ui)
+    ${SRC}/forscape_settings_diff_dialog.ui
+    ${SRC}/forscape_settings_diff_dialog_codegen.cpp
+    ${SRC}/forscape_settings_diff_dialog_codegen.h)
 
 set(QT_FILES
     ${UI_CODEGEN_FILES}
@@ -81,7 +83,7 @@ add_custom_target(
     codegen_ui ALL
     COMMAND python3 codegen_ui.py
     WORKING_DIRECTORY ${META}
-    # BYPRODUCTS ${UI_CODEGEN_FILES}
+    BYPRODUCTS ${UI_CODEGEN_FILES}
     COMMENT "Performing UI codegen")
 add_dependencies(QtForscapeSettingsLib codegen_ui)
 

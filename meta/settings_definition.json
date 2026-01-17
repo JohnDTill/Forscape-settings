@@ -1,40 +1,60 @@
 {
     "options": {
         "ignore": {
-            "colour": "grey",
+            "colour_role": "ignore",
             "description": "Accept the behaviour without any chiding."
         },
         "warn": {
-            "colour": "yellow",
+            "colour_role": "warn",
             "description": "Highlight the issue in the IDE and log a compiler warning."
         },
         "error": {
-            "colour": "red",
+            "colour_role": "error",
             "description": "Prevent compilation with an error."
         },
         "allow": {
-            "colour": "green",
+            "colour_role": "allow",
             "description": "Enable the mode of evaluation."
         },
         "convert to float": {
-            "colour": "grey",
+            "colour_role": "ignore",
             "description": "Use floating point representation immediately."
         },
         "convert on overflow": {
-            "colour": "lightgrey",
+            "colour_role": "semi-allow",
             "description": "Convert rational numbers to floating point representation when the numerator or denominator exceeds native word size."
         },
         "arbitrary precision": {
-            "colour": "blue",
+            "colour_role": "allow",
             "description": "Maintain exact rational representation, even when allocation of multiple words is necessary. This can lead to intractable computational effort in heavily numerical workflows."
         },
         "convert top expression": {
-            "colour": "lightgrey",
+            "colour_role": "semi-allow",
             "description": "Parse the top-most expression symbolically, but convert after. For example, \"cos(π/2)\" will be found as '0' exactly, but \"cos(π/4)\" will be approximated as \"0.707107\" since the result \"1/√2\" is symbolic."
         },
         "full symbolic": {
-            "colour": "blue",
-            "description": "Propagate symbolic expressions throughout execution. Never implicitly perform inexact operations."
+            "colour_role": "allow",
+            "description": "Propagate symbolic expressions throughout execution. Never implicitly perform inexact operations. This can lead to intractable computational effort."
+        },
+        "space-delineated": {
+            "colour_role": "semi-allow",
+            "description": "Allow implicit multiplication only with spaces, e.g. \"x y z\" parses as \"x*y*z\", but \"xyz\" does not."
+        },
+        "multi-character": {
+            "colour_role": "allow",
+            "description": "Allow all implicit multiplication without requiring spaces, e.g. \"xyz\" parses as \"x*y*z\" if \"xyz\" is not defined and 'x', 'y', and 'z' are defined."
+        },
+        "undefined": {
+            "colour_role": "error",
+            "description": "The result of the operation is undefined. The conditions causing symbolic expressions to be undefined account for this."
+        },
+        "zero": {
+            "colour_role": "semi-allow",
+            "description": "Define 0⁰ ≔ 0."
+        },
+        "one": {
+            "colour_role": "allow",
+            "description": "Define 0⁰ ≔ 1."
         }
     },
 
@@ -74,6 +94,13 @@
             "long": "Use of a leading zero makes decimal numbers easier to read, for example \"0.5\" instead of \".5\".",
             "categories": ["warnings", "math", "numeric"]
         },
+        "unexercised branch": {
+            "options": ["ignore", "warn", "error"],
+            "default": "warn",
+            "brief": "The conditions to take a branch are always false",
+            "long": "Warnings about unreachable branches can be helpful to spot logic errors.",
+            "categories": ["warnings", "general"]
+        },
         "ambiguous inheritance": {
             "options": ["ignore", "warn", "error"],
             "default": "warn",
@@ -95,11 +122,25 @@
             "long": "Shadowing is prone to accidental use of a method from an unintended class.",
             "categories": ["warnings", "general", "classes"]
         },
+        "implicit multiplication": {
+            "options": ["multi-character", "space-delineated", "error"],
+            "default": "multi-character",
+            "brief": "Multiplication without any operator symbols",
+            "long": "E.g. \"a b\" instead of \"a*b\", \"a×b\", or \"a⋅b\". This can make intent less clear, but is convenient mathematical shorthand.",
+            "categories": ["evaluation", "math"]
+        },
+        "zero to zero power": {
+            "options": ["undefined", "zero", "one"],
+            "default": "undefined",
+            "brief": "Raise zero to the zeroth power, 0⁰",
+            "long": "This depends on the specific field of mathematics, but in general is undefined.",
+            "categories": ["evaluation", "math", "numeric", "symbolic"]
+        },
         "rational conversion": {
             "options": ["convert to float", "convert on overflow", "arbitrary precision"],
             "default": "convert on overflow",
             "brief": "Choose when rational numbers are represented by floats or exact numbers",
-            "long": "For example, \"1.5\" can be parsed as a floating point number, or as \"3 / 2\". Floating point operations are efficient on processing hardware, but rational representations maintain precision.",
+            "long": "For example, \"1.5\" can be parsed as a floating point number, or as \"3/2\". Floating point operations are efficient on processing hardware, but rational representations maintain precision.",
             "categories": ["evaluation", "math", "numeric", "symbolic"]
         },
         "irrational conversion": {
