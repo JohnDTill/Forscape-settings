@@ -68,12 +68,17 @@ set(CMAKE_AUTOMOC ON)
 set(UI_CODEGEN_FILES
     ${SRC}/forscape_settings_diff_dialog.ui
     ${SRC}/forscape_settings_diff_dialog_codegen.cpp
-    ${INC}/forscape_settings_diff_dialog_codegen.h)
+    ${INC}/forscape_settings_diff_dialog_codegen.h
+    ${SRC}/forscape_settings_colour_palette.cpp
+    ${INC}/forscape_settings_colour_palette.h)
 
 set(QT_FILES
     ${UI_CODEGEN_FILES}
+    ${SRC}/forscape_q_settings_diff.cpp
+    ${INC}/forscape_q_settings_diff.h
     ${SRC}/forscape_settings_diff_dialog.cpp
-    ${INC}/forscape_settings_diff_dialog.h)
+    ${INC}/forscape_settings_diff_dialog.h
+    ${SRC}/forscape_settings_info.hpp)
 add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
 target_link_libraries(QtForscapeSettingsLib PUBLIC
     Qt${QT_VERSION_MAJOR}::Widgets
@@ -86,6 +91,8 @@ add_custom_target(
     BYPRODUCTS ${UI_CODEGEN_FILES}
     COMMENT "Performing UI codegen")
 add_dependencies(QtForscapeSettingsLib codegen_ui)
+
+file(COPY ${TEST}/lambda.ico DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 if(PROJECT_IS_TOP_LEVEL)
 include_directories(${SRC})

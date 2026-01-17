@@ -131,7 +131,7 @@ def main():
         "    /// This allows for copying the diff to a parse node.\n"
         "    void writeToBuffer(std::vector<size_t>& buffer) const;\n"
         "\n"
-        "private:\n"
+        "protected:\n"
         f"    typedef {setting_typedef} SettingsId;\n"
         "    typedef uint8_t SettingsOption;\n"
         "    std::vector<std::pair<SettingsId, SettingsOption>> updates;\n"
@@ -286,21 +286,12 @@ def main():
         "        if(subsequent) out += ',';\n"
         "        subsequent = true;\n"
         "\n"
-        "        switch(setting_id){\n"
-    )
-    for idx, compiler_setting in enumerate(settings):
-        diff_src += f"            case {idx}: out += \"{vartitle(compiler_setting)}\"; break;\n"
-    diff_src += (
-        "        }\n"
-        "\n"
-        "        out += '=';\n"
-        "\n"
         "        switch(optionToCode(setting_id, setting_value)){\n"
     )
-    for setting_id, compiler_setting_vals in enumerate(settings.values()):
+    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
         for option_id, option in enumerate(compiler_setting_vals["options"]):
             diff_src += (
-                f"            case optionToCode({setting_id}, {option_id}): out += \"{vartitle(option)}\"; break;\n"
+                f"            case optionToCode({setting_id}, {option_id}): out += \"{vartitle(compiler_setting)}={vartitle(option)}\"; break;\n"
             )
     diff_src += (
         "        }\n"

@@ -21,7 +21,7 @@ class SettingsDiffDialog : public QDialog {
     Q_OBJECT
 
 public:
-    static int exec(const Settings& inherited, SettingsDiff& diff, const SettingsPalettes& palette);
+    static int exec(const Settings& inherited, SettingsDiff& diff);
 
     static SettingsDiffDialog& getDialog();
 
@@ -30,7 +30,7 @@ private:
     explicit SettingsDiffDialog(QWidget* parent = nullptr);
     ~SettingsDiffDialog();
 
-    void updatePalette(const SettingsPalettes& palette);
+    void updatePalette();
     void updateInherited(const Settings& inherited);
     void updateDiff(const SettingsDiff& diff);
 
