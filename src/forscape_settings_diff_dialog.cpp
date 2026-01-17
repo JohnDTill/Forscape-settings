@@ -7,9 +7,9 @@ namespace Forscape {
 
 SettingsDiffDialog* SettingsDiffDialog::instance = nullptr;
 
-int SettingsDiffDialog::exec(const Settings& inherited, SettingsDiff& diff, const SettingsPalettes& palette) {
+int SettingsDiffDialog::exec(const Settings& inherited, SettingsDiff& diff) {
     SettingsDiffDialog& dialog = getDialog();
-    dialog.updatePalette(palette);
+    dialog.updatePalette();
     dialog.updateInherited(inherited);
     dialog.updateDiff(diff);
 

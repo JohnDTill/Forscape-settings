@@ -3,10 +3,13 @@ src/generated/*
 src/forscape_settings.cpp
 include/forscape_settings.h
 src/forscape_settings_diff.cpp
+src/forscape_settings_colour_palette.cpp
+include/forscape_settings_colour_palette.h
 include/forscape_settings_diff.h
 src/forscape_settings_diff_dialog.ui
 src/forscape_settings_diff_dialog_codegen.cpp
 include/forscape_settings_diff_dialog_codegen.h
+src/forscape_settings_info.hpp
 */out/*
 */CMakeCache.txt
 *.exe

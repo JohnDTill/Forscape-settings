@@ -79,6 +79,7 @@ def write_source_files(settings, options, categories):
         "#include \"ui_forscape_settings_diff_dialog.h\"\n"
         "\n"
         "#include \"forscape_settings.h\"\n"
+        "#include \"forscape_settings_colour_palette.h\"\n"
         "\n"
         "namespace Forscape {\n"
         "\n"
@@ -119,7 +120,8 @@ def write_source_files(settings, options, categories):
 
     # Palette update
     source_file += (
-        "void SettingsDiffDialog::updatePalette(const SettingsPalettes& palette) {\n"
+        "void SettingsDiffDialog::updatePalette() {\n"
+        "    const SettingsPalettes& palette = getSettingsColourPalette();\n"
     )
     for setting_idx, setting_values in enumerate(settings.values()):
         for option_idx, option in enumerate(setting_values["options"]):
@@ -169,37 +171,7 @@ def write_header_file(settings, options, filters):
         "#ifndef FORSCAPE_SETTING_DIFF_DIALOG_CODEGEN_H\n"
         "#define FORSCAPE_SETTING_DIFF_DIALOG_CODEGEN_H\n"
         "\n"
-        "#include <QColor>\n"
-        "\n"
         "namespace Forscape {\n"
-        "\n"
-        "#ifndef NDEBUG\n"
-        "#define DEBUG_INIT_SETTING_OPTION_PALETTE =QColor(0, 0, 0, 0)  /* Allow detection of unitialised palettes */\n"
-        "#else\n"
-        "#define DEBUG_INIT_SETTING_OPTION_PALETTE\n"
-        "#endif\n"
-        "\n"
-        "/// Colours to use for each settings role\n"
-        "struct SettingOptionPalette {\n"
-        "    QColor foreground DEBUG_INIT_SETTING_OPTION_PALETTE;\n"
-        "    QColor background DEBUG_INIT_SETTING_OPTION_PALETTE;\n"
-        "};\n"
-        "\n"
-    )
-
-    # Write colour definitions
-    colour_roles = set()
-    for option_vals in options.values():
-        colour_roles.add(to_snake(option_vals["colour_role"]))
-
-    header_file += (
-        "/// Colours of all settings\n"
-        "struct SettingsPalettes {\n"
-    )
-    for colour_role in colour_roles:
-        header_file += f"    SettingOptionPalette {colour_role};\n"
-    header_file += (
-        "};\n"
         "\n"
     )
 
@@ -219,6 +191,216 @@ def write_header_file(settings, options, filters):
         ui_src_file.write(header_file)
 
 
+def write_palette_header(colour_roles):
+    header_file = (
+        "#ifndef FORSCAPE_SETTING_COLOUR_PALETTE_H\n"
+        "#define FORSCAPE_SETTING_COLOUR_PALETTE_H\n"
+        "\n"
+        "#include <QColor>\n"
+        "\n"
+        "namespace Forscape {\n"
+        "\n"
+        "#ifndef NDEBUG\n"
+        "#define DEBUG_INIT_SETTING_OPTION_PALETTE =QColor(0, 0, 0, 0)  /* Allow detection of unitialised palettes */\n"
+        "#else\n"
+        "#define DEBUG_INIT_SETTING_OPTION_PALETTE\n"
+        "#endif\n"
+        "\n"
+        "/// Colours to use for each settings role\n"
+        "struct SettingOptionPalette {\n"
+        "    QColor foreground DEBUG_INIT_SETTING_OPTION_PALETTE;\n"
+        "    QColor background DEBUG_INIT_SETTING_OPTION_PALETTE;\n"
+        "};\n"
+        "\n"
+    )
+
+    # Write colour definitions
+    header_file += (
+        "/// Colours of all settings\n"
+        "struct SettingsPalettes {\n"
+    )
+    for colour_role in colour_roles:
+        header_file += f"    SettingOptionPalette {colour_role};\n"
+    header_file += (
+        "};\n"
+        "\n"
+    )
+
+    header_file += (
+        "/// Change the colours used to display settings\n"
+        "void setSettingsColourPalette(const SettingsPalettes& palette) noexcept;\n"
+        "\n"
+        "/// Get the colours used to display settings\n"
+        "const SettingsPalettes& getSettingsColourPalette() noexcept;\n"
+        "\n"
+    )
+
+    header_file += (
+        "}  // namespace Forscape\n"
+        "\n"
+        "#endif  // #ifndef FORSCAPE_SETTING_COLOUR_PALETTE_H\n"
+    )
+
+    with open(f"../include/forscape_settings_colour_palette.h", "w", encoding="utf-8") as ui_src_file:
+        ui_src_file.write(header_file)
+
+
+def write_palette_source(settings, options):
+    src = (
+        "#include \"forscape_settings_colour_palette.h\"\n"
+        "\n"
+        "namespace Forscape {\n"
+        "\n"
+        "static SettingsPalettes global_palette;\n"
+        "\n"
+    )
+
+    src += (
+        "void setSettingsColourPalette(const SettingsPalettes& palette) noexcept {\n"
+        "    global_palette = palette;\n"
+    )
+    for setting_values in settings.values():
+        for option in setting_values["options"]:
+            colour = to_snake(options[option]["colour_role"])
+            src += (
+                f"    assert(palette.{colour}.foreground.alpha());  // Verify the palette was initialised\n"
+                f"    assert(palette.{colour}.background.alpha());  // Verify the palette was initialised\n"
+            )
+    src += "}\n\n"
+
+    src += (
+        "const SettingsPalettes& getSettingsColourPalette() noexcept {\n"
+        "    return global_palette;\n"
+        "}\n\n"
+    )
+
+    src += (
+        "}  // namespace Forscape\n"
+    )
+
+    with open("../src/forscape_settings_colour_palette.cpp", "w", encoding="utf-8") as ui_src_file:
+        ui_src_file.write(src)
+
+
+def write_info(settings, options, colour_roles):
+    src = (
+        "#include <QString>\n"
+        "\n"
+        "#include \"forscape_settings_colour_palette.h\"\n"
+        "#include \"forscape_q_settings_diff.h\"\n"
+        "\n"
+        "namespace Forscape {\n"
+        "\n"
+    )
+
+    src += (
+        "typedef uint8_t SettingsId;\n"
+        "typedef uint8_t SettingsOption;\n"
+        "typedef uint8_t IdOptionPair;\n"
+        "\n"
+        "inline constexpr IdOptionPair optionToCode(SettingsId setting_id, SettingsOption option) noexcept {\n"
+        "    return setting_id | (option << 4);\n"
+        "}\n"
+        "\n"
+    )
+
+    # Char counts
+    src += (
+        "/// Number of characters in each setting ID and option\n"
+        f"constexpr std::pair<uint8_t, uint8_t> charCount(SettingsId setting_id, SettingsOption option) noexcept {{\n"
+        "    switch(optionToCode(setting_id, option)){\n"
+    )
+    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
+        for option_id, option in enumerate(compiler_setting_vals["options"]):
+            src += (
+                f"        case optionToCode({setting_id}, {option_id}): return "
+                f"{{{len(grammatically_correct_title(compiler_setting))},{len(grammatically_correct_title(option))}}};\n"
+            )
+    src += (
+        "    }\n"
+        "}\n"
+        "\n"
+    )
+
+    # Setting ID Text
+    src += (
+        f"const std::array<QString, {len(settings)}> settings_text {{\n"
+    )
+    for setting in settings:
+        src += f"    \"{grammatically_correct_title(setting)}\",\n"
+    src += "};\n\n"
+
+    # Option Text
+    src += (
+        f"const std::array<QString, {len(options)}> options_text {{\n"
+    )
+    for option in options:
+        src += f"    \"{grammatically_correct_title(option)}\",\n"
+    src += "};\n\n"
+
+    for idx, option in enumerate(options):
+        options[option]["index"] = idx
+
+    # Row info
+    src += (
+        "QSettingsDiffRow rowInfo(SettingsId setting_id, SettingsOption option) noexcept {\n"
+        "    switch(optionToCode(setting_id, option)){\n"
+    )
+    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
+        for option_id, option in enumerate(compiler_setting_vals["options"]):
+            src += (
+                f"        case optionToCode({setting_id}, {option_id}): return "
+                f"QSettingsDiffRow(settings_text[{setting_id}], "
+                f"options_text[{options[option]['index']}], "
+                f"getSettingsColourPalette().{to_snake(options[option]['colour_role'])});\n"
+            )
+    src += (
+        "    }\n"
+        "}\n"
+        "\n"
+    )
+
+    # Setting ID tooltip
+    src += (
+        f"const std::array<QString, {len(settings)}> setting_tooltips {{\n"
+    )
+    for setting_vals in settings.values():
+        tooltip = setting_vals['brief'].replace('"', '\\"')
+        src += f"    \"{tooltip}\",\n"
+    src += "};\n\n"
+
+    # Option tooltip
+    src += (
+        f"const std::array<QString, {len(options)}> option_tooltips {{\n"
+    )
+    for option in options.values():
+        tooltip = '\\n'.join(wrap(option['description'], width=60)).replace('"', '\\"')
+        src += f"    \"{tooltip}\",\n"
+    src += "};\n\n"
+
+    src += (
+        "const QString& optionTooltip(SettingsId setting_id, SettingsOption option) noexcept {\n"
+        "    switch(optionToCode(setting_id, option)){\n"
+    )
+    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
+        for option_id, option in enumerate(compiler_setting_vals["options"]):
+            src += (
+                f"        case optionToCode({setting_id}, {option_id}): return option_tooltips[{options[option]['index']}];\n"
+            )
+    src += (
+        "    }\n"
+        "}\n"
+        "\n"
+    )
+
+    src += (
+        "}  // namespace Forscape\n"
+    )
+
+    with open("../src/forscape_settings_info.hpp", "w", encoding="utf-8") as ui_src_file:
+        ui_src_file.write(src)
+
+
 def main():
     inputs = [
         Path("forscape_settings_diff_dialog.ui"),
@@ -229,7 +411,10 @@ def main():
     outputs = [
         Path("../src/forscape_settings_diff_dialog_codegen.cpp"),
         Path("../include/forscape_settings_diff_dialog_codegen.h"),
-        Path("../src/forscape_settings_diff_dialog.ui")
+        Path("../src/forscape_settings_diff_dialog.ui"),
+        Path("../src/forscape_settings_colour_palette.cpp"),
+        Path("../include/forscape_settings_colour_palette.h"),
+        Path("../src/forscape_settings_info.hpp"),
     ]
 
     if all([path.is_file() for path in outputs]) and max([os.path.getmtime(path) for path in inputs]) < min([os.path.getmtime(path) for path in outputs]):
@@ -246,6 +431,10 @@ def main():
             filters.add(category.strip().title())
     filters = {filter: idx for idx, filter in enumerate(sorted(list(filters)))}
 
+    colour_roles = set()
+    for option_vals in options.values():
+        colour_roles.add(to_snake(option_vals["colour_role"]))
+
     ui = ET.parse('forscape_settings_diff_dialog.ui')
     root = ui.getroot()
 
@@ -257,6 +446,9 @@ def main():
 
     write_source_files(settings, options, filters)
     write_header_file(settings, options, filters)
+    write_palette_header(colour_roles)
+    write_palette_source(settings, options)
+    write_info(settings, options, colour_roles)
 
 
 if __name__ == "__main__":
