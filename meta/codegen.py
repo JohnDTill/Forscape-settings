@@ -35,12 +35,8 @@ def main():
     ]
 
     if all([path.is_file() for path in outputs]) and max([os.path.getmtime(path) for path in inputs]) < min([os.path.getmtime(path) for path in outputs]):
-        return  # No sources changed
-    
-    print(
-        f"Performing settings code generation (outputs exist: {all([path.is_file() for path in outputs])}, "
-        f"last input change: {max([os.path.getmtime(path) for path in inputs])}, "
-        f"last output change: {min([os.path.getmtime(path) for path in outputs if path.is_file()])})")
+        print("Skipping settings code generation since outputs are more recent than source files")
+        return
 
     settings_def = get_definition()
     options = OrderedDict(sorted(settings_def["options"].items()))
