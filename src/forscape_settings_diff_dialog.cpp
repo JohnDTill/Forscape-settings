@@ -13,7 +13,7 @@ int SettingsDiffDialog::exec(const Settings& inherited, SettingsDiff& diff, cons
     dialog.updateInherited(inherited);
     dialog.updateDiff(diff);
 
-    const auto user_response = dialog.exec();
+    const auto user_response = dialog.QDialog::exec();
     if(user_response != QDialog::Accepted) return user_response;
 
     diff.updates.clear();
@@ -41,7 +41,7 @@ void SettingsDiffDialog::updateDiff(const SettingsDiff& diff) {
         row.box->setCurrentIndex(entry.second + 1);
     }
 
-    for(const auto row : rows) {
+    for(const auto& row : rows) {
         row.box->setToolTip(row.box->itemData(row.box->currentIndex(), Qt::ItemDataRole::ToolTipRole).toString());
 
         QPalette palette = row.box->palette();
@@ -62,29 +62,29 @@ void SettingsDiffDialog::updateChosenSetting() {
     QComboBox* combo_box = reinterpret_cast<QComboBox*>(sender());
     const auto current_index = combo_box->currentIndex();
 
-    combo_box->setToolTip(combo_box->itemData(combo_box->currentIndex(), Qt::ItemDataRole::ToolTipRole).toString());
+    combo_box->setToolTip(combo_box->itemData(current_index, Qt::ItemDataRole::ToolTipRole).toString());
 
     QPalette palette = combo_box->palette();
 
-    const QColor background = combo_box->itemData(combo_box->currentIndex(), Qt::ItemDataRole::BackgroundRole).value<QColor>();
+    const QColor background = combo_box->itemData(current_index, Qt::ItemDataRole::BackgroundRole).value<QColor>();
     // The commented line is not effective on all platforms; use style sheet
     // palette.setColor(row.box->backgroundRole(), background);
     combo_box->setStyleSheet("QComboBox { background: " + background.name() + "; }");
 
-    const QColor foreground = combo_box->itemData(combo_box->currentIndex(), Qt::ItemDataRole::ForegroundRole).value<QColor>();
+    const QColor foreground = combo_box->itemData(current_index, Qt::ItemDataRole::ForegroundRole).value<QColor>();
     palette.setColor(QPalette::ColorRole::Text, foreground);
 
     combo_box->setPalette(palette);
 
     size_t index = 0;
     ui->inheritedFormLayout->insertRow(index++, ui->overriddenLabel);
-    for(const auto row : rows){
+    for(const auto& row : rows){
         if(row.box->currentIndex() == 0) continue;
         ui->inheritedFormLayout->insertRow(index++, row.label, row.box);
         index++;
     }
     ui->inheritedFormLayout->insertRow(index++, ui->inheritedLabel);
-    for(const auto row : rows){
+    for(const auto& row : rows){
         if(row.box->currentIndex() != 0) continue;
         ui->inheritedFormLayout->insertRow(index++, row.label, row.box);
         index++;
@@ -92,14 +92,14 @@ void SettingsDiffDialog::updateChosenSetting() {
 }
 
 void SettingsDiffDialog::updateFilters() {
-    for(const auto row : rows){
+    for(const auto& row : rows){
         row.box->setVisible(true);
         row.label->setVisible(true);
     }
 
     const QString search_term = ui->filterEdit->text();
     if(!search_term.isEmpty()){
-        for(const auto row : rows){
+        for(const auto& row : rows){
             const bool contains_term = row.label->text().contains(search_term, Qt::CaseInsensitive);
             row.box->setVisible(contains_term);
             row.label->setVisible(contains_term);
@@ -110,7 +110,7 @@ void SettingsDiffDialog::updateFilters() {
         const QCheckBox* filter = filters[i];
         if(!filter->isChecked()) continue;
 
-        for(const auto row : rows){
+        for(const auto& row : rows){
             const bool contains_category = row.categories.cend() !=
                 std::find(row.categories.cbegin(), row.categories.cend(), i);
             if(contains_category) continue;

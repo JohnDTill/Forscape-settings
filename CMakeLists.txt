@@ -68,12 +68,12 @@ set(CMAKE_AUTOMOC ON)
 set(UI_CODEGEN_FILES
     ${SRC}/forscape_settings_diff_dialog.ui
     ${SRC}/forscape_settings_diff_dialog_codegen.cpp
-    ${SRC}/forscape_settings_diff_dialog_codegen.h)
+    ${INC}/forscape_settings_diff_dialog_codegen.h)
 
 set(QT_FILES
     ${UI_CODEGEN_FILES}
     ${SRC}/forscape_settings_diff_dialog.cpp
-    ${SRC}/forscape_settings_diff_dialog.h)
+    ${INC}/forscape_settings_diff_dialog.h)
 add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
 target_link_libraries(QtForscapeSettingsLib PUBLIC
     Qt${QT_VERSION_MAJOR}::Widgets

@@ -6,7 +6,7 @@ src/forscape_settings_diff.cpp
 include/forscape_settings_diff.h
 src/forscape_settings_diff_dialog.ui
 src/forscape_settings_diff_dialog_codegen.cpp
-src/forscape_settings_diff_dialog_codegen.h
+include/forscape_settings_diff_dialog_codegen.h
 */out/*
 */CMakeCache.txt
 *.exe
