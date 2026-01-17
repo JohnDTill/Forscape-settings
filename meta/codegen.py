@@ -288,7 +288,7 @@ def main():
         "\n"
         "        switch(setting_id){\n"
     )
-    for idx, compiler_setting in enumerate(settings_def["compiler_settings"]):
+    for idx, compiler_setting in enumerate(settings):
         diff_src += f"            case {idx}: out += \"{vartitle(compiler_setting)}\"; break;\n"
     diff_src += (
         "        }\n"
