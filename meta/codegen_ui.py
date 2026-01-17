@@ -215,7 +215,7 @@ def write_header_file(settings, options, filters):
         "#endif  // #ifndef FORSCAPE_SETTING_DIFF_DIALOG_CODEGEN_H\n"
     )
 
-    with open(f"../src/forscape_settings_diff_dialog_codegen.h", "w", encoding="utf-8") as ui_src_file:
+    with open(f"../include/forscape_settings_diff_dialog_codegen.h", "w", encoding="utf-8") as ui_src_file:
         ui_src_file.write(header_file)
 
 
@@ -228,7 +228,7 @@ def main():
 
     outputs = [
         Path("../src/forscape_settings_diff_dialog_codegen.cpp"),
-        Path("../src/forscape_settings_diff_dialog_codegen.h"),
+        Path("../include/forscape_settings_diff_dialog_codegen.h"),
         Path("../src/forscape_settings_diff_dialog.ui")
     ]
 
