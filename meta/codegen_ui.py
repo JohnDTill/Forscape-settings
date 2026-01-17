@@ -232,13 +232,13 @@ def main():
         Path("../src/forscape_settings_diff_dialog.ui")
     ]
 
-    if all([path.exists for path in outputs]) and max([os.path.getmtime(path) for path in inputs]) < min([os.path.getmtime(path) for path in outputs]):
+    if all([path.is_file() for path in outputs]) and max([os.path.getmtime(path) for path in inputs]) < min([os.path.getmtime(path) for path in outputs]):
         return  # No sources changed
     
     print(
-        f"Performing settings UI code generation (outputs exist: {all([path.exists for path in outputs])}, "
+        f"Performing settings UI code generation (outputs exist: {all([path.is_file() for path in outputs])}, "
         f"last input change: {max([os.path.getmtime(path) for path in inputs])}, "
-        f"last output change: {min([os.path.getmtime(path) for path in outputs])})")
+        f"last output change: {min([os.path.getmtime(path) for path in outputs if path.is_file()])})")
 
     settings_def = get_definition()
     options = OrderedDict(sorted(settings_def["options"].items()))
