@@ -12,12 +12,16 @@ include_directories(${INC})
 
 set(GEN_FILES
     ${SRC}/forscape_settings.cpp
-    ${INC}/forscape_settings.h)
+    ${INC}/forscape_settings.h
+    ${SRC}/forscape_settings_diff.cpp
+    ${INC}/forscape_settings_diff.h)
 
-set(SRC_FILES
-    ${GEN_FILES})
+set(SRC_FILES ${GEN_FILES})
 
 add_library(ForscapeSettingsLib SHARED ${SRC_FILES})
+
+find_path(PARALLEL_HASHMAP_INCLUDE_DIRS "parallel_hashmap/btree.h")
+target_include_directories(ForscapeSettingsLib PRIVATE ${PARALLEL_HASHMAP_INCLUDE_DIRS})
 
 add_custom_target(
     codegen ALL
@@ -43,9 +47,51 @@ target_include_directories(ForscapeSettingsLib
 if(PROJECT_IS_TOP_LEVEL)
 find_package(Catch2 CONFIG REQUIRED)
 enable_testing()
+set(TEST ${CMAKE_CURRENT_SOURCE_DIR}/test)
 add_executable(Tests
-    test/test_settings.cpp)
+    ${TEST}/test_settings.cpp
+    ${TEST}/test_settings_diff.cpp)
 target_include_directories(Tests PUBLIC src)
 target_link_libraries(Tests PRIVATE ForscapeSettingsLib Catch2::Catch2WithMain)
 add_test(NAME Tests COMMAND Tests)
 endif(PROJECT_IS_TOP_LEVEL)
+
+# Qt layer
+option(USE_QT OFF)
+if(${USE_QT})
+find_package(QT NAMES Qt5 Qt6 COMPONENTS Widgets REQUIRED)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
+
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOMOC ON)
+
+set(UI_CODEGEN_FILES
+    ${SRC}/forscape_settings_diff_dialog.ui
+    ${SRC}/forscape_settings_diff_dialog_codegen.cpp
+    ${SRC}/forscape_settings_diff_dialog_codegen.h)
+
+set(QT_FILES
+    ${UI_CODEGEN_FILES}
+    ${SRC}/forscape_settings_diff_dialog.cpp
+    ${SRC}/forscape_settings_diff_dialog.h)
+add_library(QtForscapeSettingsLib SHARED ${QT_FILES})
+target_link_libraries(QtForscapeSettingsLib PUBLIC
+    Qt${QT_VERSION_MAJOR}::Widgets
+    ForscapeSettingsLib)
+
+add_custom_target(
+    codegen_ui ALL
+    COMMAND python3 codegen_ui.py
+    WORKING_DIRECTORY ${META}
+    BYPRODUCTS ${UI_CODEGEN_FILES}
+    COMMENT "Performing UI codegen")
+add_dependencies(QtForscapeSettingsLib codegen_ui)
+
+if(PROJECT_IS_TOP_LEVEL)
+include_directories(${SRC})
+qt_add_executable(DiffDialog MANUAL_FINALIZATION ${TEST}/visualise_diff_dialog.cpp)
+target_link_libraries(DiffDialog PRIVATE Qt${QT_VERSION_MAJOR}::Widgets QtForscapeSettingsLib)
+qt_finalize_executable(DiffDialog)
+endif(PROJECT_IS_TOP_LEVEL)
+
+endif(${USE_QT})
