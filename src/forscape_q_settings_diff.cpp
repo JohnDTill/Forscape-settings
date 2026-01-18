@@ -9,35 +9,40 @@ size_t QSettingsDiff::size() const noexcept {
     return updates.size();
 }
 
-std::pair<uint8_t, uint8_t> QSettingsDiff::maxChars() const noexcept {
-    std::pair<uint8_t, uint8_t> max_chars = {0, 0};
-    for(const auto update : updates){
-        const std::pair<uint8_t, uint8_t> chars = charCount(update.first, update.second);
-        max_chars.first = std::max(max_chars.first, chars.first);
-        max_chars.second = std::max(max_chars.second, chars.second);
-    }
+uint8_t QSettingsDiff::maxSettingChars() const noexcept {
+    uint8_t max_chars = 0;
+    for(const auto update : updates)
+        max_chars = std::max(max_chars, static_cast<uint8_t>(setting_text[update.first].size()));
 
     return max_chars;
 }
 
-QSettingsDiffRow QSettingsDiff::getRowInfo(size_t index) const noexcept {
-    assert(index < size());
-    const auto update = updates[index];
-    return rowInfo(update.first, update.second);
+uint8_t QSettingsDiff::maxOptionChars() const noexcept {
+    uint8_t max_chars = 0;
+    for(const auto update : updates)
+        max_chars = std::max(max_chars, static_cast<uint8_t>(option_text[update.second].size()));
+
+    return max_chars;
 }
 
-const QString& QSettingsDiff::getIdTooltip(size_t index) const noexcept {
-    assert(index < size());
-    return setting_tooltips[updates[index].first];
+QString QSettingsDiff::getSettingText(size_t row) const {
+    return setting_text[updates[row].first];
 }
 
-const QString& QSettingsDiff::getOptionTooltip(size_t index) const noexcept {
-    assert(index < size());
-    const auto update = updates[index];
-    return optionTooltip(update.first, update.second);
+QString QSettingsDiff::getOptionText(size_t row) const {
+    return option_text[updates[row].second];
 }
 
-QSettingsDiffRow::QSettingsDiffRow(const QString& setting, const QString& option, const SettingOptionPalette& option_palette) noexcept
-    : setting(setting), option(option), option_palette(option_palette) {}
+QString QSettingsDiff::getIdTooltip(size_t row) const {
+    return setting_tooltips[updates[row].first];
+}
+
+QString QSettingsDiff::getOptionTooltip(size_t row) const {
+    return option_tooltips[updates[row].second];
+}
+
+const SettingOptionPalette& QSettingsDiff::getPalette(size_t row) const noexcept {
+    return rowPalette(updates[row].second);
+}
 
 }  // namespace Forscape

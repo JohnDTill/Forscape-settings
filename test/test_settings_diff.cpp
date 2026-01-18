@@ -23,7 +23,7 @@ TEST_CASE( "Invalid Diff Serialisation" ) {
 }
 
 TEST_CASE( "Diff application" ) {
-    Settings settings = Settings::getDefaults();
+    ScopedSettings settings;
     REQUIRE(settings.getUnusedVariableOption() == UnusedVariableOption::WARN);
 
     settings.enterScope();
@@ -38,7 +38,7 @@ TEST_CASE( "Diff application" ) {
 }
 
 TEST_CASE( "Buffer trip" ) {
-    Settings settings = Settings::getDefaults();
+    ScopedSettings settings;
     REQUIRE(settings.getUnusedVariableOption() == UnusedVariableOption::WARN);
 
     SettingsDiff diff = SettingsDiff::fromString("UnusedVariable=Error");

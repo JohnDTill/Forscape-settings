@@ -2,6 +2,7 @@
 #include "ui_forscape_settings_diff_dialog.h"
 
 #include "forscape_settings_diff.h"
+#include "forscape_settings_diff_dialog_codegen.cpp"
 
 namespace Forscape {
 
@@ -20,7 +21,7 @@ int SettingsDiffDialog::exec(const Settings& inherited, SettingsDiff& diff) {
     for(size_t i = 0; i < dialog.rows.size(); i++){
         const auto row = dialog.rows[i];
         const auto index = row.box->currentIndex();
-        if(index != 0) diff.updates.push_back({i, index-1});
+        if(index != 0) diff.updates.push_back({i, option_local_to_global[i][index-1]});
     }
 
     return user_response;
@@ -38,7 +39,7 @@ SettingsDiffDialog::~SettingsDiffDialog() {
 void SettingsDiffDialog::updateDiff(const SettingsDiff& diff) {
     for(const auto entry : diff.updates){
         const auto& row = rows[entry.first];
-        row.box->setCurrentIndex(entry.second + 1);
+        row.box->setCurrentIndex(1 + optionGlobalToLocal(entry.first, entry.second));
     }
 
     for(const auto& row : rows) {

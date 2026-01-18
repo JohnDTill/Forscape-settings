@@ -20,9 +20,6 @@ set(SRC_FILES ${GEN_FILES})
 
 add_library(ForscapeSettingsLib SHARED ${SRC_FILES})
 
-find_path(PARALLEL_HASHMAP_INCLUDE_DIRS "parallel_hashmap/btree.h")
-target_include_directories(ForscapeSettingsLib PRIVATE ${PARALLEL_HASHMAP_INCLUDE_DIRS})
-
 add_custom_target(
     codegen ALL
     COMMAND python3 codegen.py
@@ -67,7 +64,6 @@ set(CMAKE_AUTOMOC ON)
 
 set(UI_CODEGEN_FILES
     ${SRC}/forscape_settings_diff_dialog.ui
-    ${SRC}/forscape_settings_diff_dialog_codegen.cpp
     ${INC}/forscape_settings_diff_dialog_codegen.h
     ${SRC}/forscape_settings_colour_palette.cpp
     ${INC}/forscape_settings_colour_palette.h)
