@@ -24,7 +24,7 @@ add_custom_target(
     codegen ALL
     COMMAND python3 codegen.py
     WORKING_DIRECTORY ${META}
-    # BYPRODUCTS ${GEN_FILES}
+    BYPRODUCTS ${GEN_FILES}
     COMMENT "Performing codegen"
 )
 add_dependencies(ForscapeSettingsLib codegen)
@@ -64,7 +64,6 @@ set(CMAKE_AUTOMOC ON)
 
 set(UI_CODEGEN_FILES
     ${SRC}/forscape_settings_diff_dialog.ui
-    ${SRC}/forscape_settings_diff_dialog_codegen.cpp
     ${INC}/forscape_settings_diff_dialog_codegen.h
     ${SRC}/forscape_settings_colour_palette.cpp
     ${INC}/forscape_settings_colour_palette.h)

@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import json
+from math import ceil, log2
 import os
 from pathlib import Path
 import re
@@ -73,7 +74,7 @@ def generate_filters(root, filters):
     filter_layout.append(spacer)
 
 
-def write_source_files(settings, options, categories):
+def write_source_files(settings, options, categories, setting_typedef, options_typedef):
     source_file = (
         "#include \"forscape_settings_diff_dialog.h\"\n"
         "#include \"ui_forscape_settings_diff_dialog.h\"\n"
@@ -84,6 +85,8 @@ def write_source_files(settings, options, categories):
         "namespace Forscape {\n"
         "\n"
     )
+
+    max_options = max([len(setting["options"]) for setting in settings.values()])
 
     # Constructor
     source_file += (
@@ -137,13 +140,51 @@ def write_source_files(settings, options, categories):
         "\n"
     )
 
+    # Maps
+    source_file += (
+        f"inline constexpr std::array<std::array<{options_typedef}, {max_options}>, {len(settings)}> option_local_to_global {{\n"
+    )
+    for setting_idx, setting_values in enumerate(settings.values()):
+        source_file += f"    std::array<{options_typedef}, {max_options}>({{"
+        for option_idx, option in enumerate(setting_values["options"]):
+            source_file += f"{options[option]['index']},"
+        source_file += "}),\n"
+    source_file += "};\n\n"
+
+    source_file += (
+        f"template<{setting_typedef} setting>"
+        f"inline constexpr {options_typedef} optionGlobalToLocal({options_typedef} global_option) noexcept {{\n"
+        f"    if(option_local_to_global[setting][0] == global_option) return 0;\n"
+    )
+    for i in range(1, max_options-1):
+        source_file += f"    else if(option_local_to_global[setting][{i}] == global_option) return {i};\n"
+    source_file += (
+        f"    assert(option_local_to_global[setting][{max_options-1}] == global_option);\n"
+        f"    return {max_options-1};\n"
+        "}\n"
+        "\n"
+    )
+
+    source_file += (
+        f"inline constexpr {options_typedef} optionGlobalToLocal({setting_typedef} setting, {options_typedef} global_option) noexcept {{\n"
+        f"    if(option_local_to_global[setting][0] == global_option) return 0;\n"
+    )
+    for i in range(1, max_options-1):
+        source_file += f"    else if(option_local_to_global[setting][{i}] == global_option) return {i};\n"
+    source_file += (
+        f"    assert(option_local_to_global[setting][{max_options-1}] == global_option);\n"
+        f"    return {max_options-1};\n"
+        "}\n"
+        "\n"
+    )
+
     # Inherited settings update
     source_file += (
         "void SettingsDiffDialog::updateInherited(const Settings& inherited) {\n"
     )
     for setting_idx, (setting, setting_values) in enumerate(settings.items()):
         source_file += (
-            f"    const int inherited{setting_idx} = 1 + static_cast<int>(inherited.get{vartitle(setting)}Option());\n"
+            f"    const int inherited{setting_idx} = 1 + optionGlobalToLocal<{setting_idx}>(static_cast<int>(inherited.get{vartitle(setting)}Option()));\n"
             # f"    const QColor foreground_colour{setting_idx} = ui->settingComboBox{setting_idx}->itemData(inherited{setting_idx}, Qt::ItemDataRole::ForegroundRole).value<QColor>();\n"
             # f"    ui->settingComboBox{setting_idx}->setItemData(0, foreground_colour{setting_idx}.darker(110), Qt::ItemDataRole::ForegroundRole);\n"
             f"    const QColor background_colour{setting_idx} = ui->settingComboBox{setting_idx}->itemData(inherited{setting_idx}, Qt::ItemDataRole::BackgroundRole).value<QColor>();\n"
@@ -282,75 +323,39 @@ def write_palette_source(settings, options):
         ui_src_file.write(src)
 
 
-def write_info(settings, options, colour_roles):
+def write_info(settings, options, colour_roles, setting_typedef, options_typedef):
     src = (
         "#include <QString>\n"
         "\n"
         "#include \"forscape_settings_colour_palette.h\"\n"
-        "#include \"forscape_q_settings_diff.h\"\n"
         "\n"
         "namespace Forscape {\n"
         "\n"
     )
 
     src += (
-        "typedef uint8_t SettingsId;\n"
-        "typedef uint8_t SettingsOption;\n"
-        "typedef uint8_t IdOptionPair;\n"
+        f"typedef {setting_typedef} SettingsId;\n"
+        f"typedef {options_typedef} SettingsOption;\n"
         "\n"
-        "inline constexpr IdOptionPair optionToCode(SettingsId setting_id, SettingsOption option) noexcept {\n"
-        "    return setting_id | (option << 4);\n"
-        "}\n"
-        "\n"
-    )
-
-    # Char counts
-    src += (
-        "/// Number of characters in each setting ID and option\n"
-        f"constexpr std::pair<uint8_t, uint8_t> charCount(SettingsId setting_id, SettingsOption option) noexcept {{\n"
-        "    switch(optionToCode(setting_id, option)){\n"
-    )
-    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
-        for option_id, option in enumerate(compiler_setting_vals["options"]):
-            src += (
-                f"        case optionToCode({setting_id}, {option_id}): return "
-                f"{{{len(grammatically_correct_title(compiler_setting))},{len(grammatically_correct_title(option))}}};\n"
-            )
-    src += (
-        "    }\n"
-        "}\n"
-        "\n"
-    )
-
-    # Setting ID Text
-    src += (
-        f"const std::array<QString, {len(settings)}> settings_text {{\n"
+        f"inline constexpr std::array<QLatin1StringView, {len(settings)}> setting_text {{\n"
     )
     for setting in settings:
-        src += f"    \"{grammatically_correct_title(setting)}\",\n"
+        src += f"    QLatin1StringView(\"{grammatically_correct_title(setting)}\"),\n"
     src += "};\n\n"
 
-    # Option Text
-    src += (
-        f"const std::array<QString, {len(options)}> options_text {{\n"
-    )
+    src += f"inline constexpr std::array<QLatin1StringView, {len(options)}> option_text {{\n"
     for option in options:
-        src += f"    \"{grammatically_correct_title(option)}\",\n"
+        src += f"    QLatin1StringView(\"{grammatically_correct_title(option)}\"),\n"
     src += "};\n\n"
 
-    # Row info
     src += (
-        "QSettingsDiffRow rowInfo(SettingsId setting_id, SettingsOption option) noexcept {\n"
-        "    switch(optionToCode(setting_id, option)){\n"
+        "const SettingOptionPalette& rowPalette(SettingsOption option) noexcept {\n"
+        "    switch(option){\n"
     )
-    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
-        for option_id, option in enumerate(compiler_setting_vals["options"]):
-            src += (
-                f"        case optionToCode({setting_id}, {option_id}): return "
-                f"QSettingsDiffRow(settings_text[{setting_id}], "
-                f"options_text[{options[option]['index']}], "
-                f"getSettingsColourPalette().{to_snake(options[option]['colour_role'])});\n"
-            )
+    for option_idx, (option, option_vals) in enumerate(options.items()):
+        src += (
+            f"        case {option_idx}: return getSettingsColourPalette().{to_snake(option_vals['colour_role'])};\n"
+        )
     src += (
         "    }\n"
         "}\n"
@@ -359,36 +364,21 @@ def write_info(settings, options, colour_roles):
 
     # Setting ID tooltip
     src += (
-        f"const std::array<QString, {len(settings)}> setting_tooltips {{\n"
+        f"inline constexpr std::array<QLatin1StringView, {len(settings)}> setting_tooltips {{\n"
     )
     for setting_vals in settings.values():
         tooltip = setting_vals['brief'].replace('"', '\\"')
-        src += f"    \"{tooltip}\",\n"
+        src += f"    QLatin1StringView(\"{tooltip}\"),\n"
     src += "};\n\n"
 
     # Option tooltip
     src += (
-        f"const std::array<QString, {len(options)}> option_tooltips {{\n"
+        f"inline constexpr std::array<QLatin1StringView, {len(options)}> option_tooltips {{\n"
     )
     for option in options.values():
         tooltip = '\\n'.join(wrap(option['description'], width=60)).replace('"', '\\"')
-        src += f"    \"{tooltip}\",\n"
+        src += f"    QLatin1StringView(\"{tooltip}\"),\n"
     src += "};\n\n"
-
-    src += (
-        "const QString& optionTooltip(SettingsId setting_id, SettingsOption option) noexcept {\n"
-        "    switch(optionToCode(setting_id, option)){\n"
-    )
-    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
-        for option_id, option in enumerate(compiler_setting_vals["options"]):
-            src += (
-                f"        case optionToCode({setting_id}, {option_id}): return option_tooltips[{options[option]['index']}];\n"
-            )
-    src += (
-        "    }\n"
-        "}\n"
-        "\n"
-    )
 
     src += (
         "}  // namespace Forscape\n"
@@ -422,6 +412,14 @@ def main():
     options = OrderedDict(sorted(settings_def["options"].items()))
     settings = OrderedDict(sorted(settings_def["compiler_settings"].items()))
 
+    num_settings_bits = ceil(log2(len(settings)))
+    num_options_bits = ceil(log2(len(options)))
+    setting_typedef = "uint8_t" if num_settings_bits <= 8 else "uint16_t"
+    options_typedef = "uint8_t" if num_options_bits <= 8 else "uint16_t"
+
+    for idx, option in enumerate(options):
+        options[option]["index"] = idx
+
     filters = set()
     for setting_values in settings.values():
         for category in setting_values["categories"]:
@@ -441,11 +439,11 @@ def main():
     ET.indent(ui, space=" ", level=0)
     ui.write("../src/forscape_settings_diff_dialog.ui", encoding="UTF-8", xml_declaration=True)
 
-    write_source_files(settings, options, filters)
+    write_source_files(settings, options, filters, setting_typedef, options_typedef)
     write_header_file(settings, options, filters)
     write_palette_header(colour_roles)
     write_palette_source(settings, options)
-    write_info(settings, options, colour_roles)
+    write_info(settings, options, colour_roles, setting_typedef, options_typedef)
 
 
 if __name__ == "__main__":

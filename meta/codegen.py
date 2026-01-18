@@ -76,8 +76,6 @@ def main():
     for idx, option in enumerate(options):
         options[option]["index"] = idx
 
-    # TODO: where does max_options belong? We'll still need it.
-    max_options = max([len(setting["options"]) for setting in settings.values()])
     num_settings_bits = ceil(log2(len(settings)))
     num_options_bits = ceil(log2(len(options)))
     setting_typedef = "uint8_t" if num_settings_bits <= 8 else "uint16_t"
@@ -250,6 +248,9 @@ def main():
             "\n"
         )
     settings_header += (
+        "    const Settings& getSettings() const noexcept;\n"
+        "\n"
+        "    operator const Settings&() const noexcept;\n"
         "private:\n"
         f"    typedef {setting_typedef} SettingsId;\n"
         "\n"
@@ -313,6 +314,14 @@ def main():
         "        settings.compiler_settings[setting_id] = setting_value;\n"
         "    }\n"
         "    modified_settings.resize(num_settings_modified);\n"
+        "}\n"
+        "\n"
+        "const Settings& ScopedSettings::getSettings() const noexcept {\n"
+        "    return settings;\n"
+        "}\n"
+        "\n"
+        "ScopedSettings::operator const Settings&() const noexcept {\n"
+        "    return getSettings();\n"
         "}\n"
         "\n"
     )

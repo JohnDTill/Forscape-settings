@@ -28,7 +28,7 @@ int main(int argc, char* argv[]){
 
     initialisePalette();
 
-    Forscape::Settings settings = Forscape::Settings::getDefaults();
+    Forscape::ScopedSettings settings;
     Forscape::SettingsDiff diff = Forscape::SettingsDiff::fromString(
         "UnusedVariable=Error,ScopeShadowing=Warn,TransposeT=Ignore,IrrationalConversion=FullSymbolic");
 
