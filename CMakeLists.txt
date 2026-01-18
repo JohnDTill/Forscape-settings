@@ -20,14 +20,11 @@ set(SRC_FILES ${GEN_FILES})
 
 add_library(ForscapeSettingsLib SHARED ${SRC_FILES})
 
-find_path(PARALLEL_HASHMAP_INCLUDE_DIRS "parallel_hashmap/btree.h")
-target_include_directories(ForscapeSettingsLib PRIVATE ${PARALLEL_HASHMAP_INCLUDE_DIRS})
-
 add_custom_target(
     codegen ALL
     COMMAND python3 codegen.py
     WORKING_DIRECTORY ${META}
-    BYPRODUCTS ${GEN_FILES}
+    # BYPRODUCTS ${GEN_FILES}
     COMMENT "Performing codegen"
 )
 add_dependencies(ForscapeSettingsLib codegen)

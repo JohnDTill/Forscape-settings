@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from ctypes import c_uint8
 import json
 from math import ceil, log2
 import os
@@ -19,6 +20,35 @@ def varupper(val):
 def vartitle(val):
     return re.sub(r'\W+', '', val.title())
 
+
+def hash(word, a):
+    hash = c_uint8(len(word))
+    for char in word:
+        hash.value ^= c_uint8(ord(char)).value
+        hash.value *= a
+
+    return hash
+
+
+def hash_str(a):
+    return (
+        "uint8_t hash(std::string_view str) noexcept {\n"
+        "    uint8_t hash = str.size();\n"
+        "    for(char ch : str){\n"
+        "        hash ^= static_cast<uint8_t>(ch);\n"
+        f"        hash *= {a};\n"
+        "    }\n"
+        "    \n"
+        "    return hash;\n"
+        "}\n"
+    )
+
+
+def build_perfect_hash(keys):
+    for a in range(256):
+        if len({hash(key, a).value for key in keys}) == len(keys):
+            return lambda key: hash(key, a).value, hash_str(a)
+    raise Exception("Failed to find perfect hash")
 
 def main():
     inputs = [
@@ -43,11 +73,15 @@ def main():
     settings = OrderedDict(sorted(settings_def["compiler_settings"].items()))
     errors = []
 
+    for idx, option in enumerate(options):
+        options[option]["index"] = idx
+
+    # TODO: where does max_options belong? We'll still need it.
     max_options = max([len(setting["options"]) for setting in settings.values()])
     num_settings_bits = ceil(log2(len(settings)))
-    num_options_bits = ceil(log2(max_options))
+    num_options_bits = ceil(log2(len(options)))
     setting_typedef = "uint8_t" if num_settings_bits <= 8 else "uint16_t"
-    setting_option_pair_typedef = "uint8_t" if num_settings_bits + num_options_bits <= 8 else "uint16_t"
+    options_typedef = "uint8_t" if num_options_bits <= 8 else "uint16_t"
 
     settings_header = (
         "#ifndef FORSCAPE_SETTINGS_H\n"
@@ -60,10 +94,10 @@ def main():
         "\n"
         "namespace Forscape {\n"
         "\n"
-        "struct Settings;\n"
+        "struct ScopedSettings;\n"
         "struct SettingsDiffView;\n"
         "\n"
-        "typedef uint8_t SettingsOption;\n"
+        f"typedef {options_typedef} SettingsOption;\n"
         "\n"
     )
 
@@ -88,7 +122,7 @@ def main():
         "\n"
         "namespace Forscape {\n"
         "\n"
-        "struct Settings;\n"
+        "struct ScopedSettings;\n"
         "struct SettingsDiff;\n"
         "class SettingsDiffDialog;\n"
         "\n"
@@ -99,13 +133,13 @@ def main():
         "    static SettingsDiffView fromBuffer(const size_t* buffer) noexcept;\n"
         "\n"
         "private:\n"
-        "    typedef uint8_t SettingsId;\n"
-        "    typedef uint8_t SettingsOption;\n"
+        f"    typedef {setting_typedef} SettingsId;\n"
+        f"    typedef {options_typedef} SettingsOption;\n"
         "\n"
         "    size_t num_settings;\n"
         "    const std::pair<SettingsId, SettingsOption>* settings;\n"
         "\n"
-        "    friend Settings;\n"
+        "    friend ScopedSettings;\n"
         "    friend SettingsDiff;\n"
         "};\n"
         "\n"
@@ -133,7 +167,7 @@ def main():
         "\n"
         "protected:\n"
         f"    typedef {setting_typedef} SettingsId;\n"
-        "    typedef uint8_t SettingsOption;\n"
+        f"    typedef {options_typedef} SettingsOption;\n"
         "    std::vector<std::pair<SettingsId, SettingsOption>> updates;\n"
         "\n"
         "    friend SettingsDiffDialog;\n"
@@ -147,7 +181,10 @@ def main():
     diff_src = (
         "#include \"forscape_settings_diff.h\"\n" \
         "\n"
-        "#include <parallel_hashmap/phmap.h>\n"
+        "#include <array>\n"
+        "#include <cassert>\n"
+        "#include <cstring>\n"
+        "#include <string_view>\n"
         "\n"
         "namespace Forscape {\n"
         "\n"
@@ -160,7 +197,7 @@ def main():
             f"enum class {vartitle(compiler_setting)}Option : SettingsOption {{\n"
         )
         for option in compiler_setting_vals["options"]:
-            settings_header += f"    {varupper(option)},"
+            settings_header += f"    {varupper(option)} = {options[option]['index']},"
             if option in options:
                 settings_header += f"  ///< {options[option]['description']}"
             else:
@@ -170,11 +207,32 @@ def main():
 
     # Write compiler settings struct
     settings_header += (
-        "/// Locally-scoped compiler options which change the evaluation of Forscape code and IDE interactions\n"
+        "/// Compiler options which change the evaluation of Forscape code and IDE interactions\n"
         "struct Settings {\n"
         "    /// Get default settings before any user overrides\n"
         "    static const Settings& getDefaults() noexcept;\n"
         "\n"
+    )
+    for compiler_setting, compiler_setting_vals in settings.items():
+        settings_header += (
+            f"    /// {compiler_setting_vals['brief']}.\n"
+            f"    {vartitle(compiler_setting)}Option get{vartitle(compiler_setting)}Option() const noexcept;\n"
+            "\n"
+        )
+    settings_header += (
+        "private:\n"
+        "    friend ScopedSettings;\n"
+        f"    typedef {setting_typedef} SettingsId;\n"
+        f"    std::array<SettingsId, {len(settings)}> compiler_settings;\n"
+        f"    static const Settings DEFAULT_SETTINGS;\n"
+        f"    Settings(const std::array<SettingsId, {len(settings)}>& compiler_settings) noexcept;\n"
+        "};\n"
+        "\n"
+    )
+
+    settings_header += (
+        "/// Locally-scoped compiler options which change the evaluation of Forscape code and IDE interactions\n"
+        "struct ScopedSettings {\n"
         "    /// Mutate the settings in place with a diff\n"
         "    void applyDiff(const SettingsDiffView& diff);\n"
         "\n"
@@ -185,25 +243,19 @@ def main():
         "    void leaveScope() noexcept;\n"
         "\n"
     )
-
     for compiler_setting, compiler_setting_vals in settings.items():
         settings_header += (
             f"    /// {compiler_setting_vals['brief']}.\n"
             f"    {vartitle(compiler_setting)}Option get{vartitle(compiler_setting)}Option() const noexcept;\n"
             "\n"
         )
-
     settings_header += (
-        "\n"
         "private:\n"
-        f"    static constexpr size_t NUM_COMPILER_SETTINGS = {len(settings)};\n"
         f"    typedef {setting_typedef} SettingsId;\n"
-        "    std::array<SettingsId, NUM_COMPILER_SETTINGS> compiler_settings;\n"
+        "\n"
+        "    Settings settings = Settings::getDefaults();\n"
         "    std::vector<size_t> num_settings_modified_per_scope;\n"
         "    std::vector<std::pair<SettingsId, SettingsOption>> modified_settings;\n"
-        "\n"
-        "    Settings(const std::array<SettingsId, NUM_COMPILER_SETTINGS>& settings) noexcept;\n"
-        "    static const Settings DEFAULT_SETTINGS;\n"
         "\n"
         "    #ifndef NDEBUG\n"
         "    bool isScopeNested() const noexcept;\n"
@@ -212,53 +264,22 @@ def main():
         "\n"
     )
 
-    # Write default settings
+    # Write defaults
     settings_src += (
-        "Settings::Settings(const std::array<SettingsId, NUM_COMPILER_SETTINGS>& settings) noexcept\n"
-        "    : compiler_settings(settings) {}\n"
+        f"Settings::Settings(const std::array<SettingsId, {len(settings)}>& compiler_settings) noexcept\n"
+        "    : compiler_settings(compiler_settings) {}\n"
         "\n"
-        "const Settings Settings::DEFAULT_SETTINGS = {{\n"
+        "const Settings Settings::DEFAULT_SETTINGS {{\n"
     )
     for compiler_setting, compiler_setting_vals in settings.items():
         if compiler_setting_vals["default"] in compiler_setting_vals["options"]:
-            settings_src += f"    static_cast<SettingsOption>({vartitle(compiler_setting)}Option::{varupper(compiler_setting_vals['default'])}),\n"
+            settings_src += f"        static_cast<SettingsOption>({vartitle(compiler_setting)}Option::{varupper(compiler_setting_vals['default'])}),\n"
         else:
             errors += f"Default {compiler_setting_vals['default']} is not an option of {compiler_setting}"
-    settings_src += "}};\n\n"
-
     settings_src += (
-        "const Settings& Settings::getDefaults() noexcept {\n"
-        "    return DEFAULT_SETTINGS;\n"
-        "}\n"
+        "}};\n"
         "\n"
-        "void Settings::applyDiff(const SettingsDiffView& diff) {\n"
-        "    for(size_t i = diff.num_settings; i-->0;){\n"
-        "        const auto [setting_id, setting_value] = diff.settings[i];\n"
-        "        modified_settings.push_back({setting_id, compiler_settings[setting_id]});\n"
-        "        compiler_settings[setting_id] = setting_value;\n"
-        "    }\n"
-        "}\n"
-        "\n"
-        "void Settings::enterScope() {\n"
-        "    num_settings_modified_per_scope.push_back(modified_settings.size());\n"
-        "}\n"
-        "\n"
-        "void Settings::leaveScope() noexcept {\n"
-        "    assert(isScopeNested());\n"
-        "    const size_t num_settings_modified = num_settings_modified_per_scope.back();\n"
-        "    num_settings_modified_per_scope.pop_back();\n"
-        "    for(size_t i = modified_settings.size(); i --> num_settings_modified;){\n"
-        "        const auto [setting_id, setting_value] = modified_settings[i];\n"
-        "        compiler_settings[setting_id] = setting_value;\n"
-        "    }\n"
-        "    modified_settings.resize(num_settings_modified);\n"
-        "}\n"
-        "\n"
-        "#ifndef NDEBUG\n"
-        "bool Settings::isScopeNested() const noexcept {\n"
-        "    return !num_settings_modified_per_scope.empty();\n"
-        "}\n"
-        "#endif\n"
+        "const Settings& Settings::getDefaults() noexcept { return DEFAULT_SETTINGS; }\n"
         "\n"
     )
 
@@ -270,15 +291,64 @@ def main():
             "}\n\n"
         )
 
+    settings_src += (
+        "void ScopedSettings::applyDiff(const SettingsDiffView& diff) {\n"
+        "    for(size_t i = diff.num_settings; i-->0;){\n"
+        "        const auto [setting_id, setting_value] = diff.settings[i];\n"
+        "        modified_settings.push_back({setting_id, settings.compiler_settings[setting_id]});\n"
+        "        settings.compiler_settings[setting_id] = setting_value;\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "void ScopedSettings::enterScope() {\n"
+        "    num_settings_modified_per_scope.push_back(modified_settings.size());\n"
+        "}\n"
+        "\n"
+        "void ScopedSettings::leaveScope() noexcept {\n"
+        "    assert(isScopeNested());\n"
+        "    const size_t num_settings_modified = num_settings_modified_per_scope.back();\n"
+        "    num_settings_modified_per_scope.pop_back();\n"
+        "    for(size_t i = modified_settings.size(); i --> num_settings_modified;){\n"
+        "        const auto [setting_id, setting_value] = modified_settings[i];\n"
+        "        settings.compiler_settings[setting_id] = setting_value;\n"
+        "    }\n"
+        "    modified_settings.resize(num_settings_modified);\n"
+        "}\n"
+        "\n"
+    )
+    for idx, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
+        settings_src += (
+            f"{vartitle(compiler_setting)}Option ScopedSettings::get{vartitle(compiler_setting)}Option() const noexcept {{\n"
+            f"    return settings.get{vartitle(compiler_setting)}Option();\n"
+            "}\n\n"
+        )
+    settings_src += (
+        "#ifndef NDEBUG\n"
+        "bool ScopedSettings::isScopeNested() const noexcept {\n"
+        "    return !num_settings_modified_per_scope.empty();\n"
+        "}\n"
+        "#endif\n"
+        "\n"
+    )
+
     # Write diff serialisation
     diff_src += (
         f"typedef {setting_typedef} SettingsId;\n"
-        "typedef uint8_t SettingsOption;\n"
-        f"typedef {setting_option_pair_typedef} IdOptionPair;\n"
+        f"typedef {options_typedef} SettingsOption;\n"
         "\n"
-        "inline constexpr IdOptionPair optionToCode(SettingsId setting_id, SettingsOption option) noexcept {\n"
-        f"    return setting_id | (option << {num_settings_bits});\n"
-        "}\n"
+        f"static constexpr std::array<std::string_view, {len(settings)}> setting_str {{\n"
+    )
+    for setting in settings:
+        diff_src += f"    \"{vartitle(setting)}\",\n"
+    diff_src += (
+        "};\n"
+        "\n"
+        f"static constexpr std::array<std::string_view, {len(options)}> option_str {{\n"
+    )
+    for option in options:
+        diff_src += f"    \"{vartitle(option)}\",\n"
+    diff_src += (
+        "};\n"
         "\n"
         "void SettingsDiff::writeString(std::string& out) const {\n"
         "    bool subsequent = false;\n"
@@ -286,27 +356,50 @@ def main():
         "        if(subsequent) out += ',';\n"
         "        subsequent = true;\n"
         "\n"
-        "        switch(optionToCode(setting_id, setting_value)){\n"
-    )
-    for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
-        for option_id, option in enumerate(compiler_setting_vals["options"]):
-            diff_src += (
-                f"            case optionToCode({setting_id}, {option_id}): out += \"{vartitle(compiler_setting)}={vartitle(option)}\"; break;\n"
-            )
-    diff_src += (
-        "        }\n"
+        "        out += setting_str[setting_id];\n"
+        "        out += '=';\n"
+        "        out += option_str[setting_value];\n"
         "    }\n"
         "}\n"
         "\n"
     )
 
     # Write diff deserialisation
-    diff_src += (
-        "static const phmap::flat_hash_map<std::string_view, std::pair<SettingsId, SettingsOption>> decoding_map {\n"
-    )
+    keys = []
+    for compiler_setting, compiler_setting_vals in settings.items():
+        for option in compiler_setting_vals["options"]:
+            key = f"{vartitle(compiler_setting)}={vartitle(option)}"
+            keys.append(key)
+
+    hash_fn, hash_str = build_perfect_hash(keys)
+    diff_src += hash_str + "\n"
+
+    perfect_hash = dict()
     for setting_id, (compiler_setting, compiler_setting_vals) in enumerate(settings.items()):
-        for option_id, option in enumerate(compiler_setting_vals["options"]):
-            diff_src += f"    {{ \"{vartitle(compiler_setting)}={vartitle(option)}\", {{{setting_id},{option_id}}} }},\n"
+        for option in compiler_setting_vals["options"]:
+            key = f"{vartitle(compiler_setting)}={vartitle(option)}"
+            perfect_hash[hash_fn(key)] = {"key": key, "pair": f"std::make_pair({setting_id},{options[option]['index']})"}
+
+    diff_src += (
+        "/// Combine SettingId and SettingsOption to use only 1 dictionary lookup\n"
+        "static constexpr std::array<std::string_view, 255> decoding_str_map {\n"
+    )
+    for i in range(255):
+        diff_src += f"    \"{perfect_hash[i]['key'] if i in perfect_hash else ''}\",\n"
+    diff_src += "};\n\n"
+
+    diff_src += (
+        "bool isValidSettingOptionPair(std::string_view str) noexcept {\n"
+        "    const uint8_t index = hash(str);\n"
+        "    const std::string_view lookup = decoding_str_map[index];\n"
+        "    return !lookup.empty() && lookup == str;\n"
+        "}\n"
+        "\n"
+    )
+
+    diff_src += "static constexpr std::array<std::pair<SettingsId, SettingsOption>, 255> decoding_pair {\n"
+    for i in range(255):
+        diff_src += f"    {perfect_hash[i]['pair'] if i in perfect_hash else 'std::make_pair(0,0)'},\n"
     diff_src += "};\n\n"
 
     diff_src += (
@@ -315,9 +408,9 @@ def main():
         "    size_t index = tail-1;\n"
         "    for(;;) {\n"
         "        if(index == 0){\n"
-        "            return decoding_map.find(str.substr(index, tail-index)) != decoding_map.cend();\n"
+        "            return isValidSettingOptionPair(str.substr(index, tail-index));\n"
         "        }else if(str[index] == ','){\n"
-        "            if(decoding_map.find(str.substr(index+1, tail-(index+1))) == decoding_map.cend()) return false;\n"
+        "            if(!isValidSettingOptionPair(str.substr(index+1, tail-(index+1)))) return false;\n"
         "            tail = index;\n"
         "        }\n"
         "\n"
@@ -336,8 +429,8 @@ def main():
         "        const size_t start = index;\n"
         "        while(index < str.size() && str[index] != ',') index++;\n"
         "        const std::string_view setting_pair = str.substr(start, index-start);\n"
-        "        assert(decoding_map.find(setting_pair) != decoding_map.cend());\n"
-        "        diff.updates.push_back( decoding_map.find(setting_pair)->second );\n"
+        "        assert(isValidSettingOptionPair(setting_pair));\n"
+        "        diff.updates.push_back( decoding_pair[hash(setting_pair)] );\n"
         "        index++;\n"
         "    }\n"
         "\n"

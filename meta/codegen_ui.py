@@ -338,9 +338,6 @@ def write_info(settings, options, colour_roles):
         src += f"    \"{grammatically_correct_title(option)}\",\n"
     src += "};\n\n"
 
-    for idx, option in enumerate(options):
-        options[option]["index"] = idx
-
     # Row info
     src += (
         "QSettingsDiffRow rowInfo(SettingsId setting_id, SettingsOption option) noexcept {\n"
