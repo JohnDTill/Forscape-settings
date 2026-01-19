@@ -54,10 +54,8 @@ add_test(NAME Tests COMMAND Tests)
 endif(PROJECT_IS_TOP_LEVEL)
 
 # Qt layer
-option(USE_QT OFF)
-if(${USE_QT})
-find_package(QT NAMES Qt5 Qt6 COMPONENTS Widgets REQUIRED)
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
+find_package(Qt6 QUIET COMPONENTS Widgets)
+if(${Qt6_FOUND})
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -88,13 +86,23 @@ add_custom_target(
     COMMENT "Performing UI codegen")
 add_dependencies(QtForscapeSettingsLib codegen_ui)
 
-file(COPY ${TEST}/lambda.ico DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+set_target_properties(QtForscapeSettingsLib PROPERTIES VERSION ${PROJECT_VERSION})
+set_target_properties(QtForscapeSettingsLib PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
+set_target_properties(QtForscapeSettingsLib PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+add_library(Forscape::QtSettings ALIAS QtForscapeSettingsLib)
+target_include_directories(QtForscapeSettingsLib
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
 
 if(PROJECT_IS_TOP_LEVEL)
 include_directories(${SRC})
 qt_add_executable(DiffDialog MANUAL_FINALIZATION ${TEST}/visualise_diff_dialog.cpp)
 target_link_libraries(DiffDialog PRIVATE Qt${QT_VERSION_MAJOR}::Widgets QtForscapeSettingsLib)
 qt_finalize_executable(DiffDialog)
+file(COPY ${TEST}/lambda.ico DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endif(PROJECT_IS_TOP_LEVEL)
 
-endif(${USE_QT})
+endif(${Qt6_FOUND})
